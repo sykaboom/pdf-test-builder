@@ -2,27 +2,27 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Math Exam Editor v2.6 (Final UX + Render Fix)</title>
+    <title>Math Exam Editor v2.7 (Mega Patch)</title>
     <script>
         window.MathJax = {
             loader: { load: ['input/tex', 'output/svg'] },
             tex: { 
                 inlineMath: [['$', '$']],
+                displayMath: [['$$', '$$']],
                 processEscapes: true,
                 packages: ['base', 'ams', 'noerrors', 'noundefined']
             },
             svg: { 
                 fontCache: 'global',
-                scale: 1.0 
+                scale: 1.0,
+                displayAlign: 'left' // [복구] 수식 좌측 정렬
             },
             startup: { 
-                typeset: false, // 수동 제어
+                typeset: false, // 수동 제어 필수
                 pageReady: () => {
                     return MathJax.startup.defaultPageReady().then(() => {
                         console.log('MathJax Loaded');
                         window.isMathJaxReady = true;
-                        // MathJax 로드 후 전체 페이지 렌더링 시도
-                        if(window.renderPages) window.renderPages(); 
                     });
                 }
             }
@@ -36,13 +36,16 @@
         * { box-sizing: border-box; outline: none; }
         body { margin: 0; padding: 0; height: 100vh; overflow: hidden; display: flex; font-family: 'Noto Sans KR', sans-serif; background-color: #525659; }
 
-        /* [수식 스타일] */
-        mjx-container { display: inline-block !important; vertical-align: middle !important; margin: 0 2px; cursor: pointer; }
+        /* [수식 Atom 스타일] */
+        mjx-container { 
+            display: inline-block !important; 
+            vertical-align: middle !important; 
+            margin: 0 2px; 
+            cursor: pointer; 
+            user-select: none; /* Atom처럼 동작하게 선택 방지 */
+        }
         mjx-container:hover { background-color: rgba(0, 123, 255, 0.1); border-radius: 4px; }
-        .tex-source { color: #007bff; font-family: monospace; background: #e7f5ff; border-radius: 3px; padding: 0 2px; font-size: 0.9em; }
-
-        /* [빈칸 박스] */
-        .blank-box { display: inline-block; border: 1px solid #000; padding: 1px 8px; min-width: 36px; text-align: center; background: #fff; vertical-align: middle; margin: 0 3px; font-family: 'Noto Serif KR', serif; font-size: 0.95em; cursor: pointer; user-select: none; }
+        mjx-container:focus { outline: 2px solid #007bff; border-radius: 4px; }
 
         /* [UI 스타일] */
         #drop-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 123, 255, 0.85); z-index: 9999; display: none; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: bold; pointer-events: none; flex-direction: column; gap: 10px; }
@@ -88,9 +91,11 @@
         .block-wrapper { position: relative; margin-bottom: 2px; width: 100%; flex-shrink: 0; border-radius: 4px; border: 1px solid transparent; transition: background 0.1s; }
         .block-wrapper:hover { background-color: rgba(0,0,0,0.03); }
         .block-wrapper.bg-gray-block { background-color: #f1f3f5; border-radius: 6px; padding: 5px; margin-bottom: 5px; border: 1px solid #e9ecef; }
+        
+        /* [복구] 핸들 시각화 */
         .block-handle { position: absolute; left: -25px; top: 0; width: 25px; height: 100%; cursor: grab; display: flex; align-items: flex-start; padding-top: 5px; justify-content: center; opacity: 0; color: #aaa; z-index: 100; font-size: 18px; transition: opacity 0.2s; }
         .block-wrapper:hover .block-handle { opacity: 1; }
-        .block-wrapper.temp-show-handle .block-handle { opacity: 1 !important; }
+        .block-handle::after { content: '⋮⋮'; font-size: 16px; } /* 시각적 복구 */
         .block-wrapper.dragging { opacity: 0.4; background: #e2e6ea; }
         .drop-target-top { border-top: 3px solid #007bff; margin-top: -3px; }
         .drop-target-bottom { border-bottom: 3px solid #007bff; margin-bottom: -3px; }
@@ -139,6 +144,7 @@
         .btn-warning { background: #ffc107; color: #212529; border: none; font-weight: bold; }
         .btn-success { background: #28a745; color: white; border: none; font-weight: bold; }
         .btn-danger { background: #dc3545; color: white; border: none; font-weight: bold; }
+        .btn-purple { background: #6f42c1; color: white; border: none; font-weight: bold; }
         .btn-sm { padding: 4px 8px; width: auto; font-size: 12px; }
 
         .settings-panel { background:#f8f9fa; border:1px solid #dee2e6; border-radius:6px; padding:10px; margin-bottom:15px; }
@@ -181,9 +187,6 @@
         <div style="font-weight:bold; display:flex; justify-content:space-between;">
             <span>📥 AI 데이터 입력 (호환 모드)</span>
             <span style="cursor:pointer;" onclick="closeModal('import-modal')">×</span>
-        </div>
-        <div style="font-size:11px; color:#666; margin-bottom:-10px;">
-            * [[텍스트]], JSON, HTML 형식 모두 자동 인식
         </div>
         <textarea id="import-textarea" class="modal-textarea" placeholder="데이터를 여기에 붙여넣으세요..."></textarea>
         <div style="display:flex; justify-content:flex-end; gap:10px;">
@@ -235,6 +238,10 @@
     <div class="menu-item" onclick="toggleGrayBg()"><span>🎨 회색 배경</span><span class="shortcut-badge">Ctrl+Alt+G</span></div>
     <div class="menu-item" onclick="toggleBorder()"><span>🔲 테두리 박스</span><span class="shortcut-badge">Ctrl+Alt+B</span></div>
     <div class="menu-sep"></div>
+    <div class="menu-item" onclick="applyAlign('left')"><span>⇤ 왼쪽 정렬</span><span class="shortcut-badge">Ctrl+Sh+L</span></div>
+    <div class="menu-item" onclick="applyAlign('center')"><span>↔ 가운데 정렬</span><span class="shortcut-badge">Ctrl+Sh+M</span></div>
+    <div class="menu-item" onclick="applyAlign('right')"><span>⇥ 오른쪽 정렬</span><span class="shortcut-badge">Ctrl+Sh+R</span></div>
+    <div class="menu-sep"></div>
     <div class="menu-item" onclick="duplicateTargetBlock()"><span>📋 복제하기</span><span class="shortcut-badge">Ctrl+D</span></div>
     <div class="menu-item" onclick="addBlockAbove('example')"><span>➕ 위에 추가</span><span class="shortcut-badge">Alt+Enter</span></div>
     <div class="menu-item" onclick="addBlockBelow('example')"><span>➕ 아래에 추가</span><span class="shortcut-badge">Enter</span></div>
@@ -248,7 +255,8 @@
 
 <nav class="sidebar">
     <div style="font-weight:bold; font-size:16px; margin-bottom:15px; border-bottom:2px solid #333; padding-bottom:5px;">
-        📐 수학 에디터 v2.6
+        📐 수학 에디터 v2.7
+        <div style="font-size:10px; color:#666; font-weight:normal;">Stable + Manual Render</div>
     </div>
     
     <div class="settings-panel" style="background:#e8f5e9; border:1px solid #c8e6c9;">
@@ -262,13 +270,18 @@
         <div style="font-size:10px; color:#666; margin-top:5px;">* Ctrl+S 저장 시 파일이 덮어씌워집니다.</div>
     </div>
 
+    <button class="btn btn-purple" onclick="ManualRenderer.renderAll()" style="margin-bottom:15px; padding: 12px;">
+        ⚡ 수식 변환 (Render)<br>
+        <span style="font-size:10px; opacity:0.8;">Click: $..$ → SVG / DblClick: Edit</span>
+    </button>
+
     <div style="margin-bottom:10px;">
         <span style="font-size:12px;">확대/축소</span>
         <input type="range" id="zoomRange" min="0.5" max="1.5" step="0.1" value="1.0" style="width: 100%;">
     </div>
     <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
-        <button class="btn" style="width:48%" onclick="performUndo()" title="실행 취소">↶ Undo</button>
-        <button class="btn" style="width:48%" onclick="performRedo()" title="다시 실행">↷ Redo</button>
+        <button class="btn" style="width:48%" onclick="performUndo()" title="실행 취소">↶ Undo<br><span style="font-size:9px;">(Ctrl+Z)</span></button>
+        <button class="btn" style="width:48%" onclick="performRedo()" title="다시 실행">↷ Redo<br><span style="font-size:9px;">(Ctrl+Shift+Z)</span></button>
     </div>
 
     <button class="btn btn-success" onclick="insertImageBoxSafe()" style="margin-bottom:15px;">
@@ -299,13 +312,12 @@
         <div class="shortcut-header">⌨️ 단축키 가이드</div>
         <div class="shortcut-list">
             <div class="shortcut-item"><span>공백(10칸)</span><span class="shortcut-key">Sh+Tab</span></div>
-            <div class="shortcut-item"><span>다음/이전 블록</span><span class="shortcut-key">Tab / Sh+Tab</span></div>
-            <div class="shortcut-item"><span>상하 이동</span><span class="shortcut-key">▲ / ▼</span></div>
+            <div class="shortcut-item"><span>다음/이전 블록</span><span class="shortcut-key">Tab / Ctrl+Tab</span></div>
+            <div class="shortcut-item"><span>실행 취소/복구</span><span class="shortcut-key">Ctrl+(Sh)+Z</span></div>
             <div class="shortcut-item"><span>새 문제 추가</span><span class="shortcut-key">Enter</span></div>
             <div class="shortcut-item"><span>위에 추가</span><span class="shortcut-key">Alt+Enter</span></div>
             <div class="shortcut-item"><span>단 나누기</span><span class="shortcut-key">Ctrl+Enter</span></div>
             <div class="shortcut-item"><span>찾기/바꾸기</span><span class="shortcut-key">Ctrl+Q+F</span></div>
-            <div class="shortcut-item"><span>저장 (덮어쓰기)</span><span class="shortcut-key">Ctrl+S</span></div>
             <div class="shortcut-item"><span>블록 테두리</span><span class="shortcut-key">Ctrl+Alt+B</span></div>
             <div class="shortcut-item"><span>블록 음영</span><span class="shortcut-key">Ctrl+Alt+G</span></div>
             <div class="shortcut-item"><span>이미지 박스</span><span class="shortcut-key">Ctrl+Alt+I</span></div>
@@ -335,52 +347,102 @@
     let lastFocusId = null;
     window.isMathJaxReady = false;
 
-    // [v2.3+] 자동 렌더링 엔진 (Focus In/Out 방식)
-    const MathRenderer = {
-        toText(element) {
-            const containers = element.querySelectorAll('mjx-container');
-            containers.forEach(mjx => {
-                const tex = mjx.getAttribute('data-tex');
-                if (tex) {
-                    const span = document.createElement('span'); span.className = 'tex-source'; span.innerText = '$' + tex + '$'; mjx.replaceWith(span);
-                }
-            });
-            const sources = element.querySelectorAll('.tex-source');
-            sources.forEach(span => { const text = document.createTextNode(span.innerText); span.replaceWith(text); });
+    // [핵심 패치] 수동 렌더링 엔진 (ManualRenderer)
+    const ManualRenderer = {
+        async renderAll() {
+            if (!window.isMathJaxReady) { alert("MathJax 엔진 로딩 중입니다. 잠시 후 다시 시도하세요."); return; }
+            showLoading("⚡ 수식 변환 중...");
+            
+            // 1. 모든 편집 박스 순회
+            const boxes = document.querySelectorAll('.editable-box');
+            for (let box of boxes) {
+                // $..$ 패턴 찾기 (이미 렌더링된 mjx-container 제외)
+                // 텍스트 노드만 순회하여 변환
+                await this.typesetElement(box);
+            }
+            hideLoading();
+            // 변환 후 데이터 업데이트 (Atom 저장)
+            this.syncAllBlocks();
         },
 
-        async toSVG(element) {
-            if (!window.isMathJaxReady) return; // [Fix] 로딩 전 실행 방지
-
-            const regex = /\$([^$]+)\$/g;
+        async typesetElement(element) {
+            const regex = /(\$[^$]+\$|\$\$[^$]+\$\$)/g;
             const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false);
             const textNodes = [];
             while(walker.nextNode()) textNodes.push(walker.currentNode);
 
             for (let node of textNodes) {
+                if (node.parentNode.tagName === 'MJX-CONTAINER' || node.parentNode.tagName === 'STYLE') continue;
                 const text = node.nodeValue;
-                if (!regex.test(text)) continue;
+                if (!text.match(regex)) continue;
 
                 const fragment = document.createDocumentFragment();
                 let lastIndex = 0; regex.lastIndex = 0; let match;
 
                 while ((match = regex.exec(text)) !== null) {
+                    // 앞쪽 일반 텍스트
                     if (match.index > lastIndex) fragment.appendChild(document.createTextNode(text.substring(lastIndex, match.index)));
-                    const tex = match[1];
+                    
+                    const fullTex = match[0]; // $..$ 포함
+                    const cleanTex = fullTex.replace(/^\$\$|\$\$?$/g, ''); // $ 제거
+                    const isDisplay = fullTex.startsWith('$$');
+
                     try {
-                        const svgNode = await MathJax.tex2svgPromise(tex);
+                        // SVG 생성
+                        const svgNode = await MathJax.tex2svgPromise(cleanTex, { display: isDisplay });
                         const mjxContainer = svgNode.querySelector('mjx-container');
                         if (mjxContainer) {
-                            mjxContainer.setAttribute('data-tex', tex); mjxContainer.removeAttribute('tabindex'); fragment.appendChild(mjxContainer);
-                        } else fragment.appendChild(document.createTextNode(`$${tex}$`));
-                    } catch(e) { fragment.appendChild(document.createTextNode(`$${tex}$`)); }
+                            mjxContainer.setAttribute('data-tex', cleanTex); 
+                            mjxContainer.setAttribute('contenteditable', 'false'); // [핵심] Atom 처럼 동작 (삭제시 통째로)
+                            mjxContainer.classList.add('math-atom');
+                            fragment.appendChild(mjxContainer);
+                        } else {
+                            fragment.appendChild(document.createTextNode(fullTex));
+                        }
+                    } catch(e) { 
+                        console.error(e);
+                        fragment.appendChild(document.createTextNode(fullTex)); 
+                    }
                     lastIndex = regex.lastIndex;
                 }
                 if (lastIndex < text.length) fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
                 node.parentNode.replaceChild(fragment, node);
             }
+        },
+
+        revertToSource(mjxContainer) {
+            const tex = mjxContainer.getAttribute('data-tex');
+            if (tex) {
+                const textNode = document.createTextNode('$' + tex + '$');
+                mjxContainer.replaceWith(textNode);
+            }
+        },
+
+        syncAllBlocks() {
+            // 현재 DOM 상태를 docData에 저장 (렌더링 된 상태 그대로 저장 -> 나중에 로드시 그대로 보임)
+            document.querySelectorAll('.block-wrapper').forEach(wrap => {
+                const id = wrap.dataset.id;
+                const box = wrap.querySelector('.editable-box');
+                if (box) updateBlockContent(id, box.innerHTML, false); // 히스토리 없이 조용히 업데이트
+            });
+            saveHistoryDebounced();
         }
     };
+
+    // [이벤트 위임] 수식 더블클릭 -> 편집 모드 전환
+    document.addEventListener('dblclick', (e) => {
+        const mjx = e.target.closest('mjx-container');
+        if (mjx) {
+            e.preventDefault(); e.stopPropagation();
+            ManualRenderer.revertToSource(mjx);
+            // 수식이 텍스트로 변하면 바로 편집 가능하도록 해당 블록 업데이트
+            const wrap = e.target.closest('.block-wrapper');
+            if(wrap) {
+                const box = wrap.querySelector('.editable-box');
+                updateBlockContent(wrap.dataset.id, box.innerHTML);
+            }
+        }
+    });
 
     const FileSystem = {
         dirHandle: null,
@@ -446,6 +508,10 @@
     async function saveProjectJSON() {
         if (!FileSystem.dirHandle) { if(!confirm("⚠️ 로컬 폴더가 연결되지 않았습니다.\n(이미지 청소 및 직접 저장이 불가능하여 다운로드 됩니다.)")) return; }
         showLoading("💾 정리 및 저장 중...");
+        
+        // 저장 전 최종 DOM 상태 반영 (혹시 편집중인 내용 있으면)
+        ManualRenderer.syncAllBlocks();
+
         const rawData = JSON.parse(JSON.stringify(docData)); 
         rawData.blocks.forEach(block => {
             if (block.content.includes('<img')) {
@@ -464,7 +530,7 @@
                 hideLoading(); alert("✅ 'data.json'에 저장되었습니다!");
             } catch(e) { alert("저장 오류: " + e.message); hideLoading(); }
         } else {
-            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(rawData, null, 2)], {type:'application/json'})); a.download = 'exam_v2.json'; a.click(); hideLoading();
+            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(rawData, null, 2)], {type:'application/json'})); a.download = 'exam_v2.7.json'; a.click(); hideLoading();
         }
     }
 
@@ -476,7 +542,7 @@
             const textNode = document.createTextNode(`[빈칸:${text}]`);
             blank.parentNode.replaceChild(textNode, blank);
         }
-        // [복구] 이미지 플레이스홀더 더블클릭 -> 파일 선택
+        // 이미지 플레이스홀더
         const placeholder = e.target.closest('.image-placeholder');
         if (placeholder) {
             e.preventDefault(); e.stopPropagation();
@@ -532,7 +598,6 @@
 
     window.onload = () => {
         const saved = localStorage.getItem('editorAutoSave'); if(saved) { docData = JSON.parse(saved); } 
-        // MathJax가 로드되지 않았어도 일단 렌더링 시도 (텍스트라도 보이게)
         renderPages(); saveHistory();
 
         document.getElementById('zoomRange').addEventListener('input', (e) => { document.getElementById('paper-container').style.transform = `scale(${e.target.value})`; docData.meta.zoom = parseFloat(e.target.value); hideResizer(); hideToolbar(); });
@@ -578,6 +643,11 @@
         // [복구] 찾기 단축키 Ctrl+Q+F
         if (keysPressed['control'] && keysPressed['q'] && keysPressed['f']) { e.preventDefault(); openModal('find-replace-modal'); document.getElementById('fr-find-input').focus(); keysPressed['f'] = false; return; }
         if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveProjectJSON(); return; }
+        
+        // [복구] Undo/Redo 글로벌 바인딩
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); performRedo(); return; }
+        else if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); performUndo(); return; }
+
         if (e.key === 'Backspace') {
             if (selectedPlaceholder && selectedPlaceholder.getAttribute('contenteditable') === 'false') { e.preventDefault(); const wrapper = selectedPlaceholder.closest('.block-wrapper'); if(wrapper) deleteBlockById(wrapper.dataset.id); } 
             else if (selectedImage) { e.preventDefault(); selectedImage.remove(); hideResizer(); saveHistoryDebounced(); }
@@ -643,14 +713,21 @@
             const el = createBlock(block); curCol.appendChild(el); 
             if (curCol.scrollHeight > curCol.clientHeight + 5) { curCol.removeChild(el); if(curCol===colL) curCol=colR; else { pageNum++; currentPage=createPage(pageNum); container.appendChild(currentPage); colL=currentPage.querySelector('.left'); colR=currentPage.querySelector('.right'); curCol=colL; } curCol.appendChild(el); } 
         });
+        
+        // 포커스 복구
+        if(lastFocusId) {
+            setTimeout(() => {
+                const el = document.querySelector(`.block-wrapper[data-id="${lastFocusId}"] .editable-box`);
+                if(el) { el.focus(); const range=document.createRange(); range.selectNodeContents(el); range.collapse(false); const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(range); lastFocusId=null; }
+            }, 0);
+        }
     }
 
-    // [복구] 안전한 이미지 삽입 함수 (사이드바 버튼용)
     function insertImageBoxSafe() {
         if(document.activeElement && document.activeElement.isContentEditable) { insertImageBox(); } else { addBlockBelow('image'); }
     }
 
-    // [복구] 키보드 UX 도우미
+    // [복구] v1.8 캐럿 유틸리티
     function isCaretOnLastLine(element) {
         const selection = window.getSelection(); if (selection.rangeCount === 0) return false;
         const range = selection.getRangeAt(0); const rect = range.getBoundingClientRect(); const elementRect = element.getBoundingClientRect();
@@ -683,8 +760,12 @@
         if(block.style && block.style.textAlign) wrap.style.textAlign = block.style.textAlign;
         if(block.bgGray) wrap.classList.add('bg-gray-block');
 
+        // [복구] Notion 방식 드래그: 핸들에서만 드래그 시작
         wrap.draggable=true;
-        wrap.ondragstart=(e)=>{ if(!e.target.classList.contains('block-handle'))return; dragSrcId=block.id; wrap.classList.add('dragging'); };
+        wrap.ondragstart=(e)=>{ 
+            if(!e.target.classList.contains('block-handle')) { e.preventDefault(); return; } // 핸들 아니면 드래그 금지
+            dragSrcId=block.id; wrap.classList.add('dragging'); 
+        };
         wrap.ondragover=(e)=>{ e.preventDefault(); const r=wrap.getBoundingClientRect(); wrap.classList.remove('drop-target-top','drop-target-bottom'); if((e.clientY-r.top)<(r.height/2)) wrap.classList.add('drop-target-top'); else wrap.classList.add('drop-target-bottom'); };
         wrap.ondrop=(e)=>{ e.stopPropagation(); e.preventDefault(); if(dragSrcId && dragSrcId!==block.id){ const srcIdx=docData.blocks.findIndex(b=>b.id===dragSrcId); const tgtIdx=docData.blocks.findIndex(b=>b.id===block.id); const [moved]=docData.blocks.splice(srcIdx,1); if(wrap.classList.contains('drop-target-bottom')) docData.blocks.splice(tgtIdx+1,0,moved); else docData.blocks.splice(tgtIdx,0,moved); renderPages(); saveHistory(); } document.querySelectorAll('.block-wrapper').forEach(w=>w.classList.remove('dragging','drop-target-top','drop-target-bottom')); };
 
@@ -704,12 +785,8 @@
             box.innerHTML=block.content;
             box.contentEditable=true;
             
-            // [Fix] 초기 렌더링 시 MathJax 로딩 체크
-            if(window.isMathJaxReady) MathRenderer.toSVG(box);
+            box.oninput=()=>{ updateBlockContent(block.id, box.innerHTML, true); };
             
-            box.addEventListener('focus', (e) => MathRenderer.toText(e.target));
-            box.addEventListener('blur', (e) => { MathRenderer.toSVG(e.target).then(() => { updateBlockContent(block.id, box.innerHTML); }); });
-
             box.addEventListener('mousedown', (e) => {
                 if(e.target.tagName==='IMG') { showResizer(e.target); e.stopPropagation(); selectedImage=e.target; }
                 if(e.target.classList.contains('image-placeholder')) {
@@ -718,9 +795,8 @@
                 }
             });
             
-            // [복구] 키보드 단축키 전체 통합
             box.onkeydown = (e) => {
-                // 1. Tab / Shift+Tab
+                // [복구] Ctrl+Tab 지원
                 if(e.key === 'Tab') { 
                     e.preventDefault(); 
                     if(e.shiftKey) document.execCommand('insertHTML', false, '&nbsp;'.repeat(10));
@@ -728,32 +804,28 @@
                     else focusNextBlock(block.id, 1);
                     return; 
                 }
-                // 2. Navigation
+                
                 if(e.key === 'ArrowDown') { if (isCaretOnLastLine(box)) { e.preventDefault(); focusNextBlock(block.id, 1); } }
                 if(e.key === 'ArrowUp') { if (isCaretOnFirstLine(box)) { e.preventDefault(); focusNextBlock(block.id, -1); } }
                 
-                // 3. Enter Actions
                 if(e.key === 'Enter') {
-                    if(e.ctrlKey) { e.preventDefault(); contextTargetId = block.id; addBlockBelow('break'); return; } // Ctrl+Enter 단나누기
-                    if(e.altKey) { e.preventDefault(); contextTargetId = block.id; addBlockAbove('example'); return; } // Alt+Enter 위에 추가
-                    if(e.shiftKey) return; // 줄바꿈
-                    e.preventDefault(); contextTargetId = block.id; addBlockBelow('example'); // 기본 Enter 아래 추가
+                    if(e.ctrlKey) { e.preventDefault(); contextTargetId = block.id; addBlockBelow('break'); return; }
+                    if(e.altKey) { e.preventDefault(); contextTargetId = block.id; addBlockAbove('example'); return; }
+                    if(e.shiftKey) return; 
+                    e.preventDefault(); contextTargetId = block.id; addBlockBelow('example'); 
                 }
 
-                // 4. Backspace (빈 블록 삭제 UX)
                 if(e.key === 'Backspace') { 
                     if(box.innerText.trim() === '' && box.innerHTML.replace(/<br>/g,'').trim() === '') { 
                         const prevIdx = docData.blocks.findIndex(b=>b.id===block.id) - 1; 
                         if (prevIdx >= 0) { e.preventDefault(); deleteBlockById(block.id); lastFocusId = docData.blocks[prevIdx].id; renderPages(); } 
                     } 
                 }
-
-                // 5. 정렬 단축키
+                
+                // 단축키
                 if((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'l' || e.key === 'L')) { e.preventDefault(); contextTargetId=block.id; applyAlign('left'); return; }
                 if((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'r' || e.key === 'R')) { e.preventDefault(); contextTargetId=block.id; applyAlign('right'); return; }
                 if((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'm' || e.key === 'M')) { e.preventDefault(); contextTargetId=block.id; applyAlign('center'); return; }
-
-                // 6. 이미지 박스
                 if((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'i' || e.key === 'I')) { e.preventDefault(); insertImageBox(); return; }
             };
 
@@ -762,7 +834,11 @@
         return wrap;
     }
 
-    function updateBlockContent(id, html) { const b = docData.blocks.find(x=>x.id===id); if(b) b.content=html; saveHistoryDebounced(); }
+    function updateBlockContent(id, html, recordHistory=true) { 
+        const b = docData.blocks.find(x=>x.id===id); 
+        if(b) b.content=html; 
+        if(recordHistory) saveHistoryDebounced(); 
+    }
     function deleteBlockById(id) { docData.blocks = docData.blocks.filter(b=>b.id!==id); renderPages(); saveHistory(); }
     function duplicateTargetBlock() { if(!contextTargetId) return; const idx = docData.blocks.findIndex(b=>b.id===contextTargetId); const clone = JSON.parse(JSON.stringify(docData.blocks[idx])); clone.id = 'copy_'+Date.now(); docData.blocks.splice(idx+1, 0, clone); renderPages(); saveHistory(); document.getElementById('context-menu').style.display='none'; }
     function addBlockBelow(type) { let targetIdx = contextTargetId ? docData.blocks.findIndex(b=>b.id===contextTargetId) : docData.blocks.length-1; const newBlock = createNewBlockData(type); docData.blocks.splice(targetIdx+1, 0, newBlock); if(type!=='break') lastFocusId = newBlock.id; renderPages(); saveHistory(); document.getElementById('context-menu').style.display='none'; }
@@ -792,7 +868,6 @@
     function handleImageUpload(e) { 
         if(!selectedPlaceholder || !e.target.files[0]) return;
         const file = e.target.files[0];
-        // [Fix] 이미지 업로드 시에도 파일시스템 저장
         if(FileSystem.dirHandle) {
             FileSystem.saveImage(file).then(saved => {
                 if(saved) {
@@ -801,7 +876,6 @@
                 }
             });
         } else {
-            // 폴더 미연결 시 Base64 Fallback
             const r=new FileReader(); r.onload=(evt)=>{ 
                 const newImg = document.createElement('img'); newImg.src = evt.target.result; newImg.style.maxWidth = '100%';
                 selectedPlaceholder.replaceWith(newImg); updateBlockContent(newImg.closest('.block-wrapper').dataset.id, newImg.closest('.editable-box').innerHTML); selectedPlaceholder = null;
