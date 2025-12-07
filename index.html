@@ -2,10 +2,10 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Math Exam Editor v2.7 (Mega Patch)</title>
+    <title>Math Exam Editor v2.8 (Final Fix)</title>
     <script>
+        // [Fix 1] MathJax 설정 충돌 해결 (loader 제거)
         window.MathJax = {
-            loader: { load: ['input/tex', 'output/svg'] },
             tex: { 
                 inlineMath: [['$', '$']],
                 displayMath: [['$$', '$$']],
@@ -15,13 +15,13 @@
             svg: { 
                 fontCache: 'global',
                 scale: 1.0,
-                displayAlign: 'left' // [복구] 수식 좌측 정렬
+                displayAlign: 'left' // 수식 좌측 정렬
             },
             startup: { 
-                typeset: false, // 수동 제어 필수
+                typeset: false, // 수동 제어 모드
                 pageReady: () => {
                     return MathJax.startup.defaultPageReady().then(() => {
-                        console.log('MathJax Loaded');
+                        console.log('MathJax Engine Ready');
                         window.isMathJaxReady = true;
                     });
                 }
@@ -42,7 +42,7 @@
             vertical-align: middle !important; 
             margin: 0 2px; 
             cursor: pointer; 
-            user-select: none; /* Atom처럼 동작하게 선택 방지 */
+            user-select: none; /* Atom처럼 선택 방지 */
         }
         mjx-container:hover { background-color: rgba(0, 123, 255, 0.1); border-radius: 4px; }
         mjx-container:focus { outline: 2px solid #007bff; border-radius: 4px; }
@@ -92,10 +92,10 @@
         .block-wrapper:hover { background-color: rgba(0,0,0,0.03); }
         .block-wrapper.bg-gray-block { background-color: #f1f3f5; border-radius: 6px; padding: 5px; margin-bottom: 5px; border: 1px solid #e9ecef; }
         
-        /* [복구] 핸들 시각화 */
         .block-handle { position: absolute; left: -25px; top: 0; width: 25px; height: 100%; cursor: grab; display: flex; align-items: flex-start; padding-top: 5px; justify-content: center; opacity: 0; color: #aaa; z-index: 100; font-size: 18px; transition: opacity 0.2s; }
         .block-wrapper:hover .block-handle { opacity: 1; }
-        .block-handle::after { content: '⋮⋮'; font-size: 16px; } /* 시각적 복구 */
+        .block-handle::after { content: '⋮⋮'; font-size: 16px; }
+        
         .block-wrapper.dragging { opacity: 0.4; background: #e2e6ea; }
         .drop-target-top { border-top: 3px solid #007bff; margin-top: -3px; }
         .drop-target-bottom { border-bottom: 3px solid #007bff; margin-bottom: -3px; }
@@ -255,8 +255,8 @@
 
 <nav class="sidebar">
     <div style="font-weight:bold; font-size:16px; margin-bottom:15px; border-bottom:2px solid #333; padding-bottom:5px;">
-        📐 수학 에디터 v2.7
-        <div style="font-size:10px; color:#666; font-weight:normal;">Stable + Manual Render</div>
+        📐 수학 에디터 v2.8
+        <div style="font-size:10px; color:#666; font-weight:normal;">Final Fix (Render/Drag)</div>
     </div>
     
     <div class="settings-panel" style="background:#e8f5e9; border:1px solid #c8e6c9;">
@@ -347,21 +347,18 @@
     let lastFocusId = null;
     window.isMathJaxReady = false;
 
-    // [핵심 패치] 수동 렌더링 엔진 (ManualRenderer)
+    // [핵심 엔진] 수동 렌더링 (ManualRenderer)
     const ManualRenderer = {
         async renderAll() {
             if (!window.isMathJaxReady) { alert("MathJax 엔진 로딩 중입니다. 잠시 후 다시 시도하세요."); return; }
             showLoading("⚡ 수식 변환 중...");
             
-            // 1. 모든 편집 박스 순회
+            // 모든 편집 박스(전체 페이지)를 순회하며 수식 변환
             const boxes = document.querySelectorAll('.editable-box');
             for (let box of boxes) {
-                // $..$ 패턴 찾기 (이미 렌더링된 mjx-container 제외)
-                // 텍스트 노드만 순회하여 변환
                 await this.typesetElement(box);
             }
             hideLoading();
-            // 변환 후 데이터 업데이트 (Atom 저장)
             this.syncAllBlocks();
         },
 
@@ -380,20 +377,18 @@
                 let lastIndex = 0; regex.lastIndex = 0; let match;
 
                 while ((match = regex.exec(text)) !== null) {
-                    // 앞쪽 일반 텍스트
                     if (match.index > lastIndex) fragment.appendChild(document.createTextNode(text.substring(lastIndex, match.index)));
                     
-                    const fullTex = match[0]; // $..$ 포함
-                    const cleanTex = fullTex.replace(/^\$\$|\$\$?$/g, ''); // $ 제거
+                    const fullTex = match[0];
+                    const cleanTex = fullTex.replace(/^\$\$|\$\$?$/g, '');
                     const isDisplay = fullTex.startsWith('$$');
 
                     try {
-                        // SVG 생성
                         const svgNode = await MathJax.tex2svgPromise(cleanTex, { display: isDisplay });
                         const mjxContainer = svgNode.querySelector('mjx-container');
                         if (mjxContainer) {
                             mjxContainer.setAttribute('data-tex', cleanTex); 
-                            mjxContainer.setAttribute('contenteditable', 'false'); // [핵심] Atom 처럼 동작 (삭제시 통째로)
+                            mjxContainer.setAttribute('contenteditable', 'false'); // Atom화
                             mjxContainer.classList.add('math-atom');
                             fragment.appendChild(mjxContainer);
                         } else {
@@ -419,23 +414,21 @@
         },
 
         syncAllBlocks() {
-            // 현재 DOM 상태를 docData에 저장 (렌더링 된 상태 그대로 저장 -> 나중에 로드시 그대로 보임)
             document.querySelectorAll('.block-wrapper').forEach(wrap => {
                 const id = wrap.dataset.id;
                 const box = wrap.querySelector('.editable-box');
-                if (box) updateBlockContent(id, box.innerHTML, false); // 히스토리 없이 조용히 업데이트
+                if (box) updateBlockContent(id, box.innerHTML, false);
             });
             saveHistoryDebounced();
         }
     };
 
-    // [이벤트 위임] 수식 더블클릭 -> 편집 모드 전환
+    // [이벤트] 더블클릭 -> 수식 편집 모드
     document.addEventListener('dblclick', (e) => {
         const mjx = e.target.closest('mjx-container');
         if (mjx) {
             e.preventDefault(); e.stopPropagation();
             ManualRenderer.revertToSource(mjx);
-            // 수식이 텍스트로 변하면 바로 편집 가능하도록 해당 블록 업데이트
             const wrap = e.target.closest('.block-wrapper');
             if(wrap) {
                 const box = wrap.querySelector('.editable-box');
@@ -509,7 +502,6 @@
         if (!FileSystem.dirHandle) { if(!confirm("⚠️ 로컬 폴더가 연결되지 않았습니다.\n(이미지 청소 및 직접 저장이 불가능하여 다운로드 됩니다.)")) return; }
         showLoading("💾 정리 및 저장 중...");
         
-        // 저장 전 최종 DOM 상태 반영 (혹시 편집중인 내용 있으면)
         ManualRenderer.syncAllBlocks();
 
         const rawData = JSON.parse(JSON.stringify(docData)); 
@@ -530,7 +522,7 @@
                 hideLoading(); alert("✅ 'data.json'에 저장되었습니다!");
             } catch(e) { alert("저장 오류: " + e.message); hideLoading(); }
         } else {
-            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(rawData, null, 2)], {type:'application/json'})); a.download = 'exam_v2.7.json'; a.click(); hideLoading();
+            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(rawData, null, 2)], {type:'application/json'})); a.download = 'exam_v2.8.json'; a.click(); hideLoading();
         }
     }
 
@@ -542,7 +534,6 @@
             const textNode = document.createTextNode(`[빈칸:${text}]`);
             blank.parentNode.replaceChild(textNode, blank);
         }
-        // 이미지 플레이스홀더
         const placeholder = e.target.closest('.image-placeholder');
         if (placeholder) {
             e.preventDefault(); e.stopPropagation();
@@ -640,11 +631,9 @@
 
     function handleGlobalKeydown(e) {
         keysPressed[e.key.toLowerCase()] = true;
-        // [복구] 찾기 단축키 Ctrl+Q+F
         if (keysPressed['control'] && keysPressed['q'] && keysPressed['f']) { e.preventDefault(); openModal('find-replace-modal'); document.getElementById('fr-find-input').focus(); keysPressed['f'] = false; return; }
         if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveProjectJSON(); return; }
         
-        // [복구] Undo/Redo 글로벌 바인딩
         if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); performRedo(); return; }
         else if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); performUndo(); return; }
 
@@ -714,7 +703,6 @@
             if (curCol.scrollHeight > curCol.clientHeight + 5) { curCol.removeChild(el); if(curCol===colL) curCol=colR; else { pageNum++; currentPage=createPage(pageNum); container.appendChild(currentPage); colL=currentPage.querySelector('.left'); colR=currentPage.querySelector('.right'); curCol=colL; } curCol.appendChild(el); } 
         });
         
-        // 포커스 복구
         if(lastFocusId) {
             setTimeout(() => {
                 const el = document.querySelector(`.block-wrapper[data-id="${lastFocusId}"] .editable-box`);
@@ -727,7 +715,6 @@
         if(document.activeElement && document.activeElement.isContentEditable) { insertImageBox(); } else { addBlockBelow('image'); }
     }
 
-    // [복구] v1.8 캐럿 유틸리티
     function isCaretOnLastLine(element) {
         const selection = window.getSelection(); if (selection.rangeCount === 0) return false;
         const range = selection.getRangeAt(0); const rect = range.getBoundingClientRect(); const elementRect = element.getBoundingClientRect();
@@ -760,10 +747,10 @@
         if(block.style && block.style.textAlign) wrap.style.textAlign = block.style.textAlign;
         if(block.bgGray) wrap.classList.add('bg-gray-block');
 
-        // [복구] Notion 방식 드래그: 핸들에서만 드래그 시작
+        // [Fix 2] 드래그 조건 완화 (closest 사용)
         wrap.draggable=true;
         wrap.ondragstart=(e)=>{ 
-            if(!e.target.classList.contains('block-handle')) { e.preventDefault(); return; } // 핸들 아니면 드래그 금지
+            if(!e.target.closest('.block-handle')) { e.preventDefault(); return; } 
             dragSrcId=block.id; wrap.classList.add('dragging'); 
         };
         wrap.ondragover=(e)=>{ e.preventDefault(); const r=wrap.getBoundingClientRect(); wrap.classList.remove('drop-target-top','drop-target-bottom'); if((e.clientY-r.top)<(r.height/2)) wrap.classList.add('drop-target-top'); else wrap.classList.add('drop-target-bottom'); };
@@ -796,7 +783,6 @@
             });
             
             box.onkeydown = (e) => {
-                // [복구] Ctrl+Tab 지원
                 if(e.key === 'Tab') { 
                     e.preventDefault(); 
                     if(e.shiftKey) document.execCommand('insertHTML', false, '&nbsp;'.repeat(10));
@@ -822,7 +808,6 @@
                     } 
                 }
                 
-                // 단축키
                 if((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'l' || e.key === 'L')) { e.preventDefault(); contextTargetId=block.id; applyAlign('left'); return; }
                 if((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'r' || e.key === 'R')) { e.preventDefault(); contextTargetId=block.id; applyAlign('right'); return; }
                 if((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'm' || e.key === 'M')) { e.preventDefault(); contextTargetId=block.id; applyAlign('center'); return; }
@@ -843,15 +828,18 @@
     function duplicateTargetBlock() { if(!contextTargetId) return; const idx = docData.blocks.findIndex(b=>b.id===contextTargetId); const clone = JSON.parse(JSON.stringify(docData.blocks[idx])); clone.id = 'copy_'+Date.now(); docData.blocks.splice(idx+1, 0, clone); renderPages(); saveHistory(); document.getElementById('context-menu').style.display='none'; }
     function addBlockBelow(type) { let targetIdx = contextTargetId ? docData.blocks.findIndex(b=>b.id===contextTargetId) : docData.blocks.length-1; const newBlock = createNewBlockData(type); docData.blocks.splice(targetIdx+1, 0, newBlock); if(type!=='break') lastFocusId = newBlock.id; renderPages(); saveHistory(); document.getElementById('context-menu').style.display='none'; }
     function addBlockAbove(type) { if(!contextTargetId) return; let targetIdx = docData.blocks.findIndex(b=>b.id===contextTargetId); const newBlock = createNewBlockData(type); docData.blocks.splice(targetIdx, 0, newBlock); lastFocusId = newBlock.id; renderPages(); saveHistory(); document.getElementById('context-menu').style.display='none'; }
+    
+    // [Fix 3] 새 블록 생성 시 라벨 자동 삽입 제거 (깨끗한 빈 줄 생성)
     function createNewBlockData(type) { 
         const newBlock = { id:'b_'+Date.now(), type:type, content:'' }; 
         if(type==='concept') newBlock.content='<span class="q-label">개념</span> '; 
-        if(type==='example') newBlock.content='<span class="q-label">예제</span> '; 
+        // if(type==='example') newBlock.content='<span class="q-label">예제</span> '; // 삭제됨: 이제 기본은 빈 줄
         if(type==='image') { newBlock.type='example'; newBlock.content='<span class="image-placeholder" contenteditable="false">이미지 박스 (Click to Select)</span>'; }
         if(type==='break') newBlock.type='break'; 
         if(type==='spacer') { newBlock.type='spacer'; newBlock.height=50; } 
         return newBlock; 
     }
+    
     function deleteTargetBlock() { if(contextTargetId) deleteBlockById(contextTargetId); document.getElementById('context-menu').style.display='none'; }
     function applyAlign(align) { const b = docData.blocks.find(x=>x.id===contextTargetId); if(b) { if(!b.style) b.style={}; b.style.textAlign=align; } renderPages(); saveHistory(); document.getElementById('context-menu').style.display='none'; }
     function toggleGrayBg() { const b = docData.blocks.find(x=>x.id===contextTargetId); if(b) b.bgGray = !b.bgGray; renderPages(); saveHistory(); document.getElementById('context-menu').style.display='none'; }
