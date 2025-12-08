@@ -2,9 +2,9 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Math Exam Editor v2.8 (Final Fix)</title>
+    <title>Math Exam Editor v3.9.5 (Fixed & UX Improved)</title>
     <script>
-        // [Fix 1] MathJax 설정 충돌 해결 (loader 제거)
+        // [설정] MathJax (v3.8: 최적화 유지)
         window.MathJax = {
             tex: { 
                 inlineMath: [['$', '$']],
@@ -13,12 +13,20 @@
                 packages: ['base', 'ams', 'noerrors', 'noundefined']
             },
             svg: { 
-                fontCache: 'global',
-                scale: 1.0,
-                displayAlign: 'left' // 수식 좌측 정렬
+                fontCache: 'none', 
+                scale: 1.0, 
+                displayAlign: 'left',
+                internalSpeechTitles: false 
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process',
+                renderActions: {
+                    assistiveMml: [] // 보조 텍스트 차단 (수식 중복 방지)
+                }
             },
             startup: { 
-                typeset: false, // 수동 제어 모드
+                typeset: false,
                 pageReady: () => {
                     return MathJax.startup.defaultPageReady().then(() => {
                         console.log('MathJax Engine Ready');
@@ -38,18 +46,32 @@
 
         /* [수식 Atom 스타일] */
         mjx-container { 
-            display: inline-block !important; 
-            vertical-align: middle !important; 
-            margin: 0 2px; 
-            cursor: pointer; 
-            user-select: none; /* Atom처럼 선택 방지 */
+            display: inline-block !important; vertical-align: middle !important; margin: 0 2px; 
+            cursor: pointer; user-select: none; color: inherit !important;
         }
-        mjx-container:hover { background-color: rgba(0, 123, 255, 0.1); border-radius: 4px; }
+        mjx-assistive-mml { display: none !important; }
+
+        /* [인쇄 굵기 보정] */
+        mjx-container svg path, mjx-container svg rect, mjx-container svg polygon {
+            fill: currentColor !important; stroke: none !important; stroke-width: 0 !important;
+        }
+        mjx-container:hover { background-color: rgba(0, 0, 0, 0.05); border-radius: 4px; }
         mjx-container:focus { outline: 2px solid #007bff; border-radius: 4px; }
+
+        /* [빈칸 박스 스타일] */
+        .blank-box {
+            display: inline-block; border: 1px solid #333; padding: 1px 10px; margin: 0 2px;
+            min-width: 36px; text-align: center; font-weight: bold; background: #fff;
+            font-family: 'Noto Sans KR', sans-serif; font-size: 0.95em; vertical-align: middle;
+            cursor: pointer; border-radius: 2px; user-select: none;
+        }
+        .blank-box:hover { background-color: #f8f9fa; border-color: #007bff; color: #007bff; }
 
         /* [UI 스타일] */
         #drop-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 123, 255, 0.85); z-index: 9999; display: none; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: bold; pointer-events: none; flex-direction: column; gap: 10px; }
+        /* [Fix v3.8] body.drag-over 클래스가 있을 때만 오버레이 표시 */
         body.drag-over #drop-overlay { display: flex; }
+        
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
         .modal-content { background: white; width: 700px; padding: 25px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); display: flex; flex-direction: column; gap: 15px; }
         .modal-textarea { width: 100%; height: 250px; padding: 12px; border: 1px solid #ccc; border-radius: 6px; font-family: monospace; font-size: 12px; resize: none; background: #f8f9fa; color: #333; }
@@ -69,7 +91,15 @@
         @keyframes pulse { 0% { opacity: 0.8; } 50% { opacity: 1; transform: scale(1.02); } 100% { opacity: 0.8; } }
 
         /* [페이지] */
-        .page { width: 210mm; height: 297mm; padding: 15mm 10mm; background: white; position: relative; box-shadow: 0 5px 20px rgba(0,0,0,0.5); margin-bottom: 30px; display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; transform-origin: top center; transition: transform 0.1s; }
+        .page { 
+            width: 210mm; height: 297mm; padding: 15mm 10mm; 
+            background: white; color: black; position: relative; 
+            box-shadow: 0 5px 20px rgba(0,0,0,0.5); margin-bottom: 30px; 
+            display: flex; flex-direction: column; flex-shrink: 0; 
+            overflow: visible; 
+            transform-origin: top center; transition: transform 0.1s; 
+        }
+        
         .header-area { width: 100%; margin-bottom: 10px; flex-shrink: 0; }
         .header-table { width: 100%; border-collapse: collapse; border: 2px solid #000; font-size: 10pt; table-layout: fixed; }
         .header-table td { border: 1px solid #000; padding: 5px; text-align: center; height: 35px; vertical-align: middle; }
@@ -88,14 +118,45 @@
         .column.right { padding-right: 0; padding-left: 5mm; }
 
         /* [블록 요소] */
-        .block-wrapper { position: relative; margin-bottom: 2px; width: 100%; flex-shrink: 0; border-radius: 4px; border: 1px solid transparent; transition: background 0.1s; }
+        .block-wrapper { 
+            position: relative; margin-bottom: 2px; width: 100%; flex-shrink: 0; 
+            border-radius: 4px; border: 1px solid transparent; transition: background 0.1s;
+            padding-right: 0; 
+            overflow: visible; 
+        }
         .block-wrapper:hover { background-color: rgba(0,0,0,0.03); }
         .block-wrapper.bg-gray-block { background-color: #f1f3f5; border-radius: 6px; padding: 5px; margin-bottom: 5px; border: 1px solid #e9ecef; }
         
-        .block-handle { position: absolute; left: -25px; top: 0; width: 25px; height: 100%; cursor: grab; display: flex; align-items: flex-start; padding-top: 5px; justify-content: center; opacity: 0; color: #aaa; z-index: 100; font-size: 18px; transition: opacity 0.2s; }
+        /* [Fix: 핸들] */
+        .block-handle { 
+            position: absolute; left: -24px; top: 0; width: 24px; height: 100%; 
+            cursor: grab; display: flex; align-items: flex-start; padding-top: 6px; 
+            justify-content: center; opacity: 0; color: #bbb; z-index: 150; 
+            transition: opacity 0.2s; user-select: none;
+        }
         .block-wrapper:hover .block-handle { opacity: 1; }
-        .block-handle::after { content: '⋮⋮'; font-size: 16px; }
+        .block-handle::after { content: '≡'; font-size: 18px; line-height: 1; font-weight: bold; }
+        .block-handle:active { cursor: grabbing; color: #555; }
         
+        /* [Fix v3.8] 우측 액션 버튼: 본문 바깥으로 이동 & 끊김 방지 처리 */
+        .block-actions { 
+            position: absolute; 
+            right: -30px; 
+            top: 2px; 
+            display: flex; flex-direction: column; gap: 2px; 
+            opacity: 0; transition: opacity 0.2s; z-index: 100; pointer-events: none; 
+        }
+        .block-actions::before {
+            content: ''; position: absolute; 
+            top: 0; bottom: 0; right: 100%; 
+            width: 30px; 
+            background: transparent;
+        }
+        .block-wrapper:hover .block-actions { opacity: 1; pointer-events: auto; }
+        
+        .block-action-btn { width: 22px; height: 22px; border: 1px solid #ddd; border-radius: 3px; background: #fff; font-size: 12px; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center; color: #777; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .block-action-btn:hover { background: #007bff; color: white; border-color: #007bff; }
+
         .block-wrapper.dragging { opacity: 0.4; background: #e2e6ea; }
         .drop-target-top { border-top: 3px solid #007bff; margin-top: -3px; }
         .drop-target-bottom { border-bottom: 3px solid #007bff; margin-bottom: -3px; }
@@ -111,7 +172,6 @@
 
         .concept-box { border: 1px solid #333; border-radius: 6px; background: #fff; padding: 8px 10px; margin-bottom: 5px; width: 100%; }
         .q-label { color: #1a6fc0; font-weight: 800; font-family: 'Noto Sans KR', sans-serif; margin-right: 5px; }
-        .blank-label { display: inline-block; border: 1px solid #333; padding: 0 8px; margin: 0 2px; min-width: 30px; text-align: center; font-weight: bold; background: #fff; font-family: 'Noto Sans KR', sans-serif; font-size: 0.95em; vertical-align: middle; }
 
         .spacer-block { width: 100%; background: repeating-linear-gradient(45deg, #f9f9f9, #f9f9f9 10px, #fff 10px, #fff 20px); border: 1px dashed #ddd; cursor: ns-resize; display: flex; align-items: center; justify-content: center; margin: 5px 0; }
         .break-line { height: 24px; border-bottom: 2px dotted #ff4444; margin: 5px 0 15px 0; text-align: center; color: #ff4444; font-size: 11px; cursor: pointer; background: rgba(255, 200, 200, 0.1); }
@@ -164,15 +224,25 @@
         
         @media print {
             @page { size: A4 portrait; margin: 0; }
-            .sidebar, #floating-toolbar, #image-resizer, #context-menu, .block-handle, #loading-indicator, #drop-overlay, .modal-overlay { display: none !important; }
+            .sidebar, #floating-toolbar, #image-resizer, #context-menu, .block-handle, .block-actions, #loading-indicator, #drop-overlay, .modal-overlay { display: none !important; }
             body, .workspace { background: white; overflow: visible; display: block; margin: 0; padding: 0; }
-            .page { display: flex !important; flex-direction: column !important; margin: 0; box-shadow: none; border: none; page-break-after: always; transform: none !important; width: 210mm; height: 297mm !important; overflow: hidden !important; }
+            .page { 
+                display: flex !important; flex-direction: column !important; margin: 0; 
+                box-shadow: none; border: none; page-break-after: always; 
+                transform: none !important; width: 210mm; height: 297mm !important; 
+                overflow: hidden !important; /* [Fix] 인쇄 시에는 넘친 것 자름 */
+            }
             .page.page-first { height: 297mm !important; }
             .body-container { flex-grow: 1 !important; margin-bottom: 0 !important; height: auto !important; }
-            .page-footer { flex-shrink: 0; margin-top: auto !important; width: 100%; z-index: 10; background: white; }
+            .page-footer { flex-shrink: 0; margin-top: auto !important; width: 100%; z-index: 10; background: white; text-align: center; font-size: 10pt; }
             .image-placeholder, .break-line { display: none; }
             .bg-gray-block { background-color: #f1f3f5 !important; -webkit-print-color-adjust: exact; }
             .spacer-block { border: none !important; background: none !important; }
+            /* [Fix] 인쇄 시 블록 패딩 없음 (기본) */
+            .block-wrapper { padding-right: 0 !important; }
+            #paper-container { transform: none !important; }
+            mjx-container { color: #222 !important; }
+            .blank-box { border-color: #000 !important; color: #000 !important; }
         }
     </style>
 </head>
@@ -247,27 +317,27 @@
     <div class="menu-item" onclick="addBlockBelow('example')"><span>➕ 아래에 추가</span><span class="shortcut-badge">Enter</span></div>
     <div class="menu-sep"></div>
     <div class="menu-item" onclick="insertImageBoxSafe()"><span>🖼️ 이미지 박스 추가</span><span class="shortcut-badge">Ctrl+Alt+I</span></div>
-    <div class="menu-item" onclick="addBlockBelow('spacer')"><span>↕ 여백 블록 추가</span><span class="shortcut-badge">Ctrl+Alt+S</span></div>
-    <div class="menu-item" onclick="addBlockBelow('break')"><span>⚡ 단 나누기 추가</span><span class="shortcut-badge">Ctrl+Enter</span></div>
+    <div class="menu-item" onclick="addBlockBelow('spacer')"><span>↕ 여백 블록 추가</span><span class="shortcut-badge">Ctrl+Sh+Click</span></div>
+    <div class="menu-item" onclick="addBlockBelow('break')"><span>⚡ 단 나누기 추가</span><span class="shortcut-badge">Ctrl+Alt+Click</span></div>
     <div class="menu-sep"></div>
     <div class="menu-item" onclick="deleteTargetBlock()" style="color:#dc3545;"><span>🗑️ 삭제하기</span><span class="shortcut-badge">Delete</span></div>
 </div>
 
 <nav class="sidebar">
     <div style="font-weight:bold; font-size:16px; margin-bottom:15px; border-bottom:2px solid #333; padding-bottom:5px;">
-        📐 수학 에디터 v2.8
-        <div style="font-size:10px; color:#666; font-weight:normal;">Final Fix (Render/Drag)</div>
+        📐 수학 에디터 v3.9
+        <div style="font-size:10px; color:#666; font-weight:normal;">Final Optimized (Drag & Space)</div>
     </div>
     
     <div class="settings-panel" style="background:#e8f5e9; border:1px solid #c8e6c9;">
-        <div style="font-size:11px; font-weight:bold; margin-bottom:5px;">📂 로컬 작업 폴더 (필수)</div>
+        <div style="font-size:11px; font-weight:bold; margin-bottom:5px;">📂 로컬 작업 폴더 (선택)</div>
         <div id="folder-status">✅ 폴더 연결됨</div>
         <div class="settings-row">
             <label>이미지 폴더명</label>
             <input type="text" id="setting-img-folder" value="images" style="width:80px;">
         </div>
         <button class="btn btn-success" onclick="FileSystem.openProjectFolder()">📂 작업 폴더 열기</button>
-        <div style="font-size:10px; color:#666; margin-top:5px;">* Ctrl+S 저장 시 파일이 덮어씌워집니다.</div>
+        <div style="font-size:10px; color:#666; margin-top:5px;">* 로컬 저장 시 이미지 자동 관리</div>
     </div>
 
     <button class="btn btn-purple" onclick="ManualRenderer.renderAll()" style="margin-bottom:15px; padding: 12px;">
@@ -305,23 +375,24 @@
         <button class="btn btn-warning" onclick="resetProject()">🗑️ 초기화 (Alt+N)</button>
         <button class="btn btn-primary" onclick="saveProjectJSON()">💾 저장 (Ctrl+S)</button>
         <button class="btn" onclick="document.getElementById('fileInput').click()">📂 열기 (Ctrl+O)</button>
-        <input type="file" id="fileInput" accept=".json" style="display:none" onchange="loadProjectJSON(this)">
+        <input type="file" id="fileInput" accept=".json" style="display:none" onchange="loadProjectJSONFromInput(this)">
     </div>
 
     <div class="shortcut-guide">
         <div class="shortcut-header">⌨️ 단축키 가이드</div>
         <div class="shortcut-list">
-            <div class="shortcut-item"><span>공백(10칸)</span><span class="shortcut-key">Sh+Tab</span></div>
-            <div class="shortcut-item"><span>다음/이전 블록</span><span class="shortcut-key">Tab / Ctrl+Tab</span></div>
-            <div class="shortcut-item"><span>실행 취소/복구</span><span class="shortcut-key">Ctrl+(Sh)+Z</span></div>
-            <div class="shortcut-item"><span>새 문제 추가</span><span class="shortcut-key">Enter</span></div>
+            <div class="shortcut-item"><span>아래에 추가</span><span class="shortcut-key">Enter</span></div>
             <div class="shortcut-item"><span>위에 추가</span><span class="shortcut-key">Alt+Enter</span></div>
-            <div class="shortcut-item"><span>단 나누기</span><span class="shortcut-key">Ctrl+Enter</span></div>
-            <div class="shortcut-item"><span>찾기/바꾸기</span><span class="shortcut-key">Ctrl+Q+F</span></div>
-            <div class="shortcut-item"><span>블록 테두리</span><span class="shortcut-key">Ctrl+Alt+B</span></div>
-            <div class="shortcut-item"><span>블록 음영</span><span class="shortcut-key">Ctrl+Alt+G</span></div>
+            <div class="shortcut-item"><span>공백(10칸)</span><span class="shortcut-key">Sh+Tab</span></div>
+            <div class="shortcut-item"><span>단 나누기</span><span class="shortcut-key">Ctrl+Alt+Click</span></div>
+            <div class="shortcut-item"><span>여백 추가</span><span class="shortcut-key">Ctrl+Sh+Click</span></div>
+            <div class="shortcut-item"><span>블록 복제</span><span class="shortcut-key">Ctrl+D</span></div>
+            <div class="shortcut-item"><span>줄바꿈(수식앞)</span><span class="shortcut-key">Sh+Enter</span></div>
             <div class="shortcut-item"><span>이미지 박스</span><span class="shortcut-key">Ctrl+Alt+I</span></div>
-            <div class="shortcut-item"><span>정렬(좌/중/우)</span><span class="shortcut-key">Ctrl+Sh+L/M/R</span></div>
+            <div class="shortcut-item"><span>회색 배경</span><span class="shortcut-key">Ctrl+Alt+G</span></div>
+            <div class="shortcut-item"><span>테두리 박스</span><span class="shortcut-key">Ctrl+Alt+B</span></div>
+            <div class="shortcut-item"><span>실행 취소</span><span class="shortcut-key">Ctrl+Z</span></div>
+            <div class="shortcut-item"><span>저장하기</span><span class="shortcut-key">Ctrl+S</span></div>
         </div>
     </div>
 
@@ -347,212 +418,60 @@
     let lastFocusId = null;
     window.isMathJaxReady = false;
 
-    // [핵심 엔진] 수동 렌더링 (ManualRenderer) - Final Patch
-    const ManualRenderer = {
-        async renderAll() {
-            if (!window.isMathJaxReady) { alert("MathJax 엔진 로딩 중입니다. 잠시 후 다시 시도하세요."); return; }
-            showLoading("⚡ 수식 변환 중...");
-            
-            // [패치 1] 수식 스타일(CSS)이 누락되지 않도록 강제 주입
-            if (!document.getElementById('MJX-SVG-styles')) {
-                const sheet = MathJax.svgStylesheet();
-                document.head.appendChild(sheet);
-            }
-
-            // 모든 편집 박스(전체 페이지)를 순회하며 수식 변환
-            const boxes = document.querySelectorAll('.editable-box');
-            for (let box of boxes) {
-                await this.typesetElement(box);
-            }
-            hideLoading();
-            this.syncAllBlocks();
-        },
-
-        async typesetElement(element) {
-            const regex = /(\$[^$]+\$|\$\$[^$]+\$\$)/g;
-            const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false);
-            const textNodes = [];
-            while(walker.nextNode()) textNodes.push(walker.currentNode);
-
-            for (let node of textNodes) {
-                // 이미 변환된 요소나 스타일 태그는 건너뜀
-                if (node.parentNode.tagName === 'MJX-CONTAINER' || node.parentNode.tagName === 'STYLE') continue;
-                
-                const text = node.nodeValue;
-                if (!text.match(regex)) continue;
-
-                const fragment = document.createDocumentFragment();
-                let lastIndex = 0; regex.lastIndex = 0; let match;
-
-                while ((match = regex.exec(text)) !== null) {
-                    if (match.index > lastIndex) fragment.appendChild(document.createTextNode(text.substring(lastIndex, match.index)));
-                    
-                    const fullTex = match[0];
-                    const cleanTex = fullTex.replace(/^\$\$|\$\$?$/g, '');
-                    const isDisplay = fullTex.startsWith('$$');
-
-                    try {
-                        // [패치 2] 핵심 수정: .querySelector 삭제 -> 변환 객체 직접 사용
-                        const mjxContainer = await MathJax.tex2svgPromise(cleanTex, { display: isDisplay });
-                        
-                        // [패치 3] Atom 기능(한 덩어리 이동/삭제) 및 데이터 보존 완벽 유지
-                        if (mjxContainer) {
-                            mjxContainer.setAttribute('data-tex', cleanTex); 
-                            mjxContainer.setAttribute('contenteditable', 'false'); // 커서 진입 방지
-                            mjxContainer.classList.add('math-atom');
-                            fragment.appendChild(mjxContainer);
-                        } else {
-                            fragment.appendChild(document.createTextNode(fullTex));
-                        }
-                    } catch(e) { 
-                        console.error("MathJax Render Error:", e);
-                        fragment.appendChild(document.createTextNode(fullTex)); 
-                    }
-                    lastIndex = regex.lastIndex;
-                }
-                if (lastIndex < text.length) fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
-                node.parentNode.replaceChild(fragment, node);
-            }
-        },
-
-        revertToSource(mjxContainer) {
-            const tex = mjxContainer.getAttribute('data-tex');
-            if (tex) {
-                const textNode = document.createTextNode('$' + tex + '$');
-                mjxContainer.replaceWith(textNode);
-            }
-        },
-
-        syncAllBlocks() {
-            document.querySelectorAll('.block-wrapper').forEach(wrap => {
-                const id = wrap.dataset.id;
-                const box = wrap.querySelector('.editable-box');
-                if (box) updateBlockContent(id, box.innerHTML, false);
-            });
-            saveHistoryDebounced();
-        }
-    };
-
-    // [이벤트] 더블클릭 -> 수식 편집 모드
-    document.addEventListener('dblclick', (e) => {
-        const mjx = e.target.closest('mjx-container');
-        if (mjx) {
-            e.preventDefault(); e.stopPropagation();
-            ManualRenderer.revertToSource(mjx);
-            const wrap = e.target.closest('.block-wrapper');
-            if(wrap) {
-                const box = wrap.querySelector('.editable-box');
-                updateBlockContent(wrap.dataset.id, box.innerHTML);
-            }
-        }
-    });
-
-    const FileSystem = {
-        dirHandle: null,
-        async openProjectFolder() {
-            try {
-                this.dirHandle = await window.showDirectoryPicker();
-                document.getElementById('folder-status').classList.add('active');
-                alert("✅ 폴더가 연결되었습니다.\n[images] 폴더와 [data.json] 파일이 이 폴더에 생성/저장됩니다.");
-            } catch (e) { console.error(e); alert("폴더 선택이 취소되었습니다."); }
-        },
-        async saveImage(file) {
-            if (!this.dirHandle) { alert("⚠️ 먼저 [📂 작업 폴더 열기]를 눌러 폴더를 연결해주세요!"); return null; }
-            try {
-                const folderName = document.getElementById('setting-img-folder').value || 'images';
-                const imgDir = await this.dirHandle.getDirectoryHandle(folderName, { create: true });
-                const timestamp = new Date().toISOString().replace(/[-:T.]/g, '').slice(2, 14); 
-                const ext = file.name.split('.').pop() || 'png';
-                const filename = `img_${timestamp}.${ext}`;
-                const fileHandle = await imgDir.getFileHandle(filename, { create: true });
-                const writable = await fileHandle.createWritable();
-                await writable.write(file);
-                await writable.close();
-                const savedFile = await fileHandle.getFile();
-                return { filename: filename, url: URL.createObjectURL(savedFile), path: `./${folderName}/${filename}` };
-            } catch (e) { alert("이미지 저장 실패: " + e.message); return null; }
-        },
-        async loadImagesForDisplay(blocks) {
-            if (!this.dirHandle) return;
-            const folderName = document.getElementById('setting-img-folder').value || 'images';
-            try {
-                const imgDir = await this.dirHandle.getDirectoryHandle(folderName);
-                for (let block of blocks) {
-                    if (block.content.includes('<img')) {
-                        const div = document.createElement('div'); div.innerHTML = block.content;
-                        const imgs = div.querySelectorAll('img'); let modified = false;
-                        for (let img of imgs) {
-                            const src = img.getAttribute('src');
-                            if (src && src.startsWith(`./${folderName}/`)) {
-                                const filename = src.split('/').pop();
-                                try { const fh = await imgDir.getFileHandle(filename); const f = await fh.getFile(); img.src = URL.createObjectURL(f); modified = true; } catch (e) { console.warn("이미지 로드 실패:", filename); }
-                            }
-                        }
-                        if (modified) block.content = div.innerHTML;
-                    }
-                }
-            } catch (e) { console.log("이미지 폴더 없음"); }
-        },
-        async cleanUpImages(blocks) {
-            if (!this.dirHandle) return;
-            const folderName = document.getElementById('setting-img-folder').value || 'images';
-            try {
-                const usedFiles = new Set();
-                blocks.forEach(b => {
-                    const div = document.createElement('div'); div.innerHTML = b.content;
-                    div.querySelectorAll('img').forEach(img => { const src = img.getAttribute('src'); if(src && src.includes(folderName)) usedFiles.add(src.split('/').pop()); });
-                });
-                const imgDir = await this.dirHandle.getDirectoryHandle(folderName);
-                for await (const [name, handle] of imgDir.entries()) { if (!usedFiles.has(name)) { await imgDir.removeEntry(name); console.log("🗑️ 미사용 이미지 삭제됨:", name); } }
-            } catch (e) { console.error("청소 중 오류:", e); }
-        }
-    };
-
-    async function saveProjectJSON() {
-        if (!FileSystem.dirHandle) { if(!confirm("⚠️ 로컬 폴더가 연결되지 않았습니다.\n(이미지 청소 및 직접 저장이 불가능하여 다운로드 됩니다.)")) return; }
-        showLoading("💾 정리 및 저장 중...");
-        
-        ManualRenderer.syncAllBlocks();
-
-        const rawData = JSON.parse(JSON.stringify(docData)); 
-        rawData.blocks.forEach(block => {
-            if (block.content.includes('<img')) {
-                const div = document.createElement('div'); div.innerHTML = block.content;
-                div.querySelectorAll('img').forEach(img => { if (img.dataset.path) img.src = img.dataset.path; });
-                block.content = div.innerHTML;
-            }
-        });
-        if (FileSystem.dirHandle) await FileSystem.cleanUpImages(rawData.blocks);
-        if (FileSystem.dirHandle) {
-            try {
-                const fileHandle = await FileSystem.dirHandle.getFileHandle('data.json', { create: true });
-                const writable = await fileHandle.createWritable();
-                await writable.write(JSON.stringify(rawData, null, 2));
-                await writable.close();
-                hideLoading(); alert("✅ 'data.json'에 저장되었습니다!");
-            } catch(e) { alert("저장 오류: " + e.message); hideLoading(); }
-        } else {
-            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(rawData, null, 2)], {type:'application/json'})); a.download = 'exam_v2.8.json'; a.click(); hideLoading();
-        }
+    // [유틸리티] 디바운스 함수
+    function debounce(func, wait) {
+        let timeout;
+        return function(...args) {
+            const context = this;
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(context, args), wait);
+        };
     }
 
-    function handleGlobalDblClick(e) {
-        const blank = e.target.closest('.blank-box');
-        if (blank) {
-            e.preventDefault(); e.stopPropagation();
-            const text = blank.innerText;
-            const textNode = document.createTextNode(`[빈칸:${text}]`);
-            blank.parentNode.replaceChild(textNode, blank);
-        }
-        const placeholder = e.target.closest('.image-placeholder');
-        if (placeholder) {
-            e.preventDefault(); e.stopPropagation();
-            if(selectedPlaceholder) selectedPlaceholder.classList.remove('selected');
-            selectedPlaceholder = placeholder; 
-            placeholder.classList.add('selected'); 
-            placeholder.setAttribute('contenteditable', 'false');
-            document.getElementById('imgUpload').click();
-        }
+    // [Helper] 아톰 경계 감지
+    function getAtomBeforeCaret(container) { 
+        const sel = window.getSelection(); if (!sel.rangeCount || !sel.isCollapsed) return null; 
+        const range = sel.getRangeAt(0); let node = range.startContainer; let offset = range.startOffset; 
+        if (!container.contains(node)) return null; 
+        if (node.nodeType === Node.TEXT_NODE) { 
+            if (offset === 0) { 
+                let prev = node.previousSibling; 
+                while (prev && prev.nodeType === Node.TEXT_NODE && prev.nodeValue === '') prev = prev.previousSibling; 
+                if (prev && (prev.tagName === 'MJX-CONTAINER' || prev.classList?.contains('blank-box'))) return prev; 
+            } return null; 
+        } 
+        if (node.nodeType === Node.ELEMENT_NODE) { 
+            const idx = offset - 1; if (idx >= 0) { const prev = node.childNodes[idx]; if (prev && (prev.tagName === 'MJX-CONTAINER' || prev.classList?.contains('blank-box'))) return prev; } 
+        } return null; 
+    }
+    function getAtomAfterCaret(container) { 
+        const sel = window.getSelection(); if (!sel.rangeCount || !sel.isCollapsed) return null; 
+        const range = sel.getRangeAt(0); let node = range.startContainer; let offset = range.startOffset; 
+        if (!container.contains(node)) return null; 
+        if (node.nodeType === Node.TEXT_NODE) { 
+            if (offset === node.nodeValue.length) { 
+                let next = node.nextSibling; 
+                while (next && next.nodeType === Node.TEXT_NODE && next.nodeValue === '') next = next.nextSibling; 
+                if (next && (next.tagName === 'MJX-CONTAINER' || next.classList?.contains('blank-box'))) return next; 
+            } return null; 
+        } 
+        if (node.nodeType === Node.ELEMENT_NODE) { const next = node.childNodes[offset]; if (next && (next.tagName === 'MJX-CONTAINER' || next.classList?.contains('blank-box'))) return next; } 
+        return null; 
+    }
+
+    // [Fix] Rich Content(HTML) -> Clean Tex 변환
+    function cleanRichContentToTex(htmlContent) {
+        const div = document.createElement('div');
+        div.innerHTML = htmlContent;
+        div.querySelectorAll('mjx-container').forEach(mjx => {
+            const tex = mjx.getAttribute('data-tex');
+            const isDisplay = mjx.getAttribute('display') === 'true'; 
+            if (tex) mjx.replaceWith(document.createTextNode(isDisplay ? `$$${tex}$$` : `$${tex}$`));
+        });
+        div.querySelectorAll('.blank-box').forEach(blank => {
+            blank.replaceWith(document.createTextNode(`[빈칸:${blank.innerText}]`));
+        });
+        return div.innerHTML;
     }
 
     const ImportParser = {
@@ -576,202 +495,328 @@
         }
     };
 
-    function confirmImport(overwrite) {
-        const input = document.getElementById('import-textarea').value.trim(); if(!input) return;
-        const limit = parseInt(document.getElementById('setting-limit').value) || 0; const addSpacer = document.getElementById('setting-spacer').checked;
-        let finalBlocks = [];
-        try {
-            if (input.startsWith('[') || input.startsWith('{')) {
-                const json = JSON.parse(input); const arr = Array.isArray(json) ? json : [json];
-                finalBlocks = arr.map(item => ({ id: 'imp_json_' + Date.now() + Math.random(), type: item.type || 'example', content: item.content || '', bordered: item.bordered || false, bgGray: item.bgGray || false }));
-            } else if (input.includes('<div') && input.includes('data-item')) {
-                const parser = new DOMParser(); const doc = parser.parseFromString(input, 'text/html'); const items = doc.querySelectorAll('.data-item');
-                items.forEach(i => { let t = 'example', c = i.innerHTML; if(i.querySelector('.concept-box')) { t = 'concept'; c = i.querySelector('.concept-box').innerHTML; } else if(i.querySelector('.answer-area')) { t = 'answer'; c = i.querySelector('.answer-area').innerHTML; } finalBlocks.push({ id: 'imp_html_' + Date.now() + Math.random(), type: t, content: c }); });
-            } else { finalBlocks = ImportParser.parse(input); }
+    // [핵심 엔진] ManualRenderer
+    const ManualRenderer = {
+        mathCache: new Map(),
 
-            let processedBlocks = []; let countInColumn = 0;
-            finalBlocks.forEach((b, idx) => { processedBlocks.push(b); if(b.type !== 'answer') { countInColumn++; if(addSpacer) processedBlocks.push({id:'sp_'+Math.random(), type:'spacer', height:50}); } if (limit > 0 && countInColumn >= limit && idx < finalBlocks.length - 1) { processedBlocks.push({id:'br_'+Math.random(), type:'break'}); countInColumn = 0; } });
+        async renderAll() {
+            if (!window.isMathJaxReady) { console.log("MathJax Waiting..."); return; }
+            if (this.isRendering) return; 
+            this.isRendering = true;
 
-            if(overwrite) docData.blocks = processedBlocks; else docData.blocks = docData.blocks.concat(processedBlocks);
-            closeModal('import-modal'); renderPages(); saveHistory();
-        } catch(e) { alert("데이터 인식 실패: "+e.message); }
-    }
-
-    window.onload = () => {
-        const saved = localStorage.getItem('editorAutoSave'); if(saved) { docData = JSON.parse(saved); } 
-        renderPages(); saveHistory();
-
-        document.getElementById('zoomRange').addEventListener('input', (e) => { document.getElementById('paper-container').style.transform = `scale(${e.target.value})`; docData.meta.zoom = parseFloat(e.target.value); hideResizer(); hideToolbar(); });
-        const body = document.body;
-        body.addEventListener('dragover', (e) => { e.preventDefault(); if(e.dataTransfer.types.includes('Files')) body.classList.add('drag-over'); });
-        body.addEventListener('dragleave', () => body.classList.remove('drag-over'));
-        body.addEventListener('drop', (e) => {
-            e.preventDefault(); body.classList.remove('drag-over'); const file = e.dataTransfer.files[0];
-            if(file) {
-                if(file.name.endsWith('.json')) { const r = new FileReader(); r.onload = (evt) => { docData = JSON.parse(evt.target.result); renderPages(); saveHistory(); }; r.readAsText(file); } 
-                else if(file.name.endsWith('.txt')) { const r = new FileReader(); r.onload = (evt) => { openModal('import-modal'); document.getElementById('import-textarea').value = evt.target.result; }; r.readAsText(file); }
+            try {
+                showLoading("⚡ 수식 변환 중...");
+                const boxes = document.querySelectorAll('.editable-box');
+                for (let box of boxes) await this.typesetElement(box);
+                rebalanceLayout(); 
+            } catch(e) {
+                console.error("Render Error:", e);
+            } finally {
+                this.isRendering = false;
+                hideLoading();
             }
-        });
-        document.getElementById('imgUpload').addEventListener('change', handleImageUpload);
-        document.addEventListener('paste', handleGlobalPaste);
-        document.addEventListener('mousedown', handleClickOutside);
-        document.addEventListener('dblclick', handleGlobalDblClick);
-        document.addEventListener('keydown', handleGlobalKeydown);
-        document.querySelector('.rh-se').addEventListener('mousedown', initResizeImage);
+        },
+
+        async typesetElement(element) {
+            if (element.querySelector('mjx-container') || element.querySelector('.blank-box')) {
+                element.innerHTML = cleanRichContentToTex(element.innerHTML);
+            }
+            element.innerHTML = element.innerHTML.replace(/\[빈칸:(.*?)\]/g, '<span class="blank-box" contenteditable="false">$1</span>');
+
+            const regex = /(\$\$[\s\S]+?\$\$|\$[\s\S]+?\$)/g;
+            const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false);
+            const textNodes = [];
+            while(walker.nextNode()) textNodes.push(walker.currentNode);
+
+            for (let node of textNodes) {
+                const text = node.nodeValue;
+                if (!text.match(regex)) continue;
+                const fragment = document.createDocumentFragment();
+                let lastIndex = 0; regex.lastIndex = 0; let match;
+                while ((match = regex.exec(text)) !== null) {
+                    if (match.index > lastIndex) fragment.appendChild(document.createTextNode(text.substring(lastIndex, match.index)));
+                    
+                    const fullTex = match[0]; 
+                    const isDisplay = fullTex.startsWith('$$'); 
+                    const cleanTex = isDisplay ? fullTex.slice(2, -2) : fullTex.slice(1, -1);
+                    
+                    const cacheKey = cleanTex + (isDisplay ? '_D' : '_I');
+                    let mjxNode = null;
+
+                    if (this.mathCache.has(cacheKey)) {
+                        mjxNode = this.mathCache.get(cacheKey).cloneNode(true);
+                    } else {
+                        try {
+                            mjxNode = await MathJax.tex2svgPromise(cleanTex, { display: isDisplay });
+                            if (mjxNode) {
+                                mjxNode.setAttribute('data-tex', cleanTex); 
+                                mjxNode.setAttribute('display', isDisplay);
+                                mjxNode.setAttribute('contenteditable', 'false');
+                                mjxNode.classList.add('math-atom');
+                                this.mathCache.set(cacheKey, mjxNode.cloneNode(true));
+                            }
+                        } catch(e) { console.error(e); }
+                    }
+
+                    if (mjxNode) fragment.appendChild(mjxNode);
+                    else fragment.appendChild(document.createTextNode(fullTex));
+
+                    lastIndex = regex.lastIndex;
+                }
+                if (lastIndex < text.length) fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
+                node.parentNode.replaceChild(fragment, node);
+            }
+        },
+
+        revertToSource(mjxContainer) {
+            const tex = mjxContainer.getAttribute('data-tex');
+            const isDisplay = mjxContainer.getAttribute('display') === 'true';
+            if (tex) mjxContainer.replaceWith(document.createTextNode(isDisplay ? `$$${tex}$$` : `$${tex}$`));
+        },
+
+        syncBlock(id) {
+            const wrap = document.querySelector(`.block-wrapper[data-id="${id}"]`); if (!wrap) return;
+            const box = wrap.querySelector('.editable-box');
+            if (box) updateBlockContent(id, cleanRichContentToTex(box.innerHTML), false);
+        },
+        
+        syncAllBlocks() { 
+            const newBlocks = [];
+            document.querySelectorAll('.block-wrapper').forEach(wrap => {
+                const id = wrap.dataset.id;
+                const block = docData.blocks.find(b => b.id === id);
+                if(block) {
+                    const box = wrap.querySelector('.editable-box');
+                    if(box) block.content = cleanRichContentToTex(box.innerHTML);
+                    newBlocks.push(block);
+                }
+            });
+            docData.blocks = newBlocks;
+            saveHistoryDebounced(); 
+        }
     };
 
-    function handleClickOutside(e) {
-        if (!e.target.closest('#floating-toolbar') && !e.target.closest('.ft-btn')) hideToolbar();
-        if (!e.target.closest('img') && !e.target.closest('#image-resizer')) hideResizer();
-        if (!e.target.closest('#context-menu')) document.getElementById('context-menu').style.display = 'none';
-        if (!e.target.classList.contains('image-placeholder')) {
-            if(selectedPlaceholder) { selectedPlaceholder.classList.remove('selected'); selectedPlaceholder.setAttribute('contenteditable', 'false'); } selectedPlaceholder = null;
-        }
-        setTimeout(() => {
-            const sel = window.getSelection();
-            if (sel.rangeCount && !sel.isCollapsed) {
-                const range = sel.getRangeAt(0); const container = range.commonAncestorContainer.nodeType===1 ? range.commonAncestorContainer : range.commonAncestorContainer.parentNode;
-                if (container.closest('.editable-box')) {
-                    const rect = range.getBoundingClientRect(); const tb = document.getElementById('floating-toolbar');
-                    tb.style.display = 'flex'; tb.style.top = (rect.top + window.scrollY - 45) + 'px'; tb.style.left = (rect.left + window.scrollX + rect.width / 2) + 'px';
+    const FileSystem = {
+        dirHandle: null,
+        async openProjectFolder() {
+            if (!window.showDirectoryPicker) { alert("브라우저 미지원"); return; }
+            try { this.dirHandle = await window.showDirectoryPicker(); document.getElementById('folder-status').classList.add('active'); alert("✅ 폴더 연결됨"); this.loadImagesForDisplay(docData.blocks); } catch (e) { }
+        },
+        async saveImage(file) {
+            if (!this.dirHandle) { alert("⚠️ 폴더 미연결"); return null; }
+            try {
+                const folderName = document.getElementById('setting-img-folder').value || 'images';
+                const imgDir = await this.dirHandle.getDirectoryHandle(folderName, { create: true });
+                const filename = `img_${new Date().toISOString().replace(/[-:T.]/g,'').slice(2,14)}.${file.name.split('.').pop()||'png'}`;
+                const fileHandle = await imgDir.getFileHandle(filename, { create: true });
+                const writable = await fileHandle.createWritable(); await writable.write(file); await writable.close();
+                const savedFile = await fileHandle.getFile();
+                return { filename, url: URL.createObjectURL(savedFile), path: `./${folderName}/${filename}` };
+            } catch (e) { alert("저장 실패: " + e.message); return null; }
+        },
+        async loadImagesForDisplay(blocks) {
+            if (!this.dirHandle) return;
+            const folderName = document.getElementById('setting-img-folder').value || 'images';
+            try {
+                const imgDir = await this.dirHandle.getDirectoryHandle(folderName);
+                for (let block of blocks) {
+                    if (block.content.includes('<img')) {
+                        const div = document.createElement('div'); div.innerHTML = block.content;
+                        let modified = false;
+                        const imgs = div.querySelectorAll('img');
+                        for (let img of imgs) {
+                            const src = img.getAttribute('src');
+                            if (src && src.startsWith(`./${folderName}/`)) {
+                                try { const fh = await imgDir.getFileHandle(src.split('/').pop()); const f = await fh.getFile(); img.src = URL.createObjectURL(f); modified = true; } catch (e) { }
+                            }
+                        }
+                        if (modified) block.content = div.innerHTML;
+                    }
                 }
-            }
-        }, 10);
-    }
+            } catch (e) { }
+        }
+    };
 
-    function handleGlobalKeydown(e) {
-        keysPressed[e.key.toLowerCase()] = true;
-        if (keysPressed['control'] && keysPressed['q'] && keysPressed['f']) { e.preventDefault(); openModal('find-replace-modal'); document.getElementById('fr-find-input').focus(); keysPressed['f'] = false; return; }
-        if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveProjectJSON(); return; }
+    async function saveProjectJSON() {
+        ManualRenderer.syncAllBlocks();
+        if (!FileSystem.dirHandle) { if(!confirm("로컬 폴더 미연결. 다운로드?")) return; }
+        showLoading("💾 저장 중...");
         
-        if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); performRedo(); return; }
-        else if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); performUndo(); return; }
-
-        if (e.key === 'Backspace') {
-            if (selectedPlaceholder && selectedPlaceholder.getAttribute('contenteditable') === 'false') { e.preventDefault(); const wrapper = selectedPlaceholder.closest('.block-wrapper'); if(wrapper) deleteBlockById(wrapper.dataset.id); } 
-            else if (selectedImage) { e.preventDefault(); selectedImage.remove(); hideResizer(); saveHistoryDebounced(); }
-        }
-    }
-
-    async function handleGlobalPaste(e) {
-        let target = null;
-        if (selectedPlaceholder && selectedPlaceholder.getAttribute('contenteditable') === 'false') target = selectedPlaceholder; 
-        else {
-            const sel = window.getSelection();
-            if (sel.rangeCount) { const node = sel.anchorNode; const el = node.nodeType === 1 ? node : node.parentElement; if (el.closest('.editable-box')) target = 'cursor'; }
-        }
-        if (!target) return;
-        const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-        for (let item of items) {
-            if (item.kind === 'file' && item.type.includes('image/')) {
-                e.preventDefault(); const file = item.getAsFile(); showLoading("💾 이미지 저장 중...");
-                const saved = await FileSystem.saveImage(file); hideLoading(); if (!saved) return; 
-                const newImg = document.createElement('img'); newImg.src = saved.url; newImg.dataset.path = saved.path; newImg.style.maxWidth = '100%';
-                if (target === selectedPlaceholder) { target.replaceWith(newImg); updateBlockContent(newImg.closest('.block-wrapper').dataset.id, newImg.closest('.editable-box').innerHTML); selectedPlaceholder = null; } 
-                else if (target === 'cursor') { document.execCommand('insertHTML', false, newImg.outerHTML); }
-                saveHistoryDebounced(); return;
+        const rawData = JSON.parse(JSON.stringify(docData)); 
+        rawData.blocks.forEach(block => {
+            block.content = cleanRichContentToTex(block.content);
+            if (block.content.includes('<img')) {
+                const div = document.createElement('div'); div.innerHTML = block.content;
+                div.querySelectorAll('img').forEach(img => { if (img.dataset.path) img.src = img.dataset.path; });
+                block.content = div.innerHTML;
             }
+        });
+
+        if (FileSystem.dirHandle) {
+            try {
+                const fileHandle = await FileSystem.dirHandle.getFileHandle('data.json', { create: true });
+                const writable = await fileHandle.createWritable(); await writable.write(JSON.stringify(rawData, null, 2)); await writable.close();
+                hideLoading(); alert("✅ 저장 완료!");
+            } catch(e) { alert("오류: " + e.message); hideLoading(); }
+        } else {
+            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(rawData, null, 2)], {type:'application/json'})); a.download = 'exam_v3.8.json'; a.click(); hideLoading();
         }
     }
 
-    function loadProjectJSON(input) {
-        const file = input.files[0]; if(!file) return; const r = new FileReader();
-        r.onload = async (e) => {
-            docData = JSON.parse(e.target.result);
-            if (FileSystem.dirHandle) await FileSystem.loadImagesForDisplay(docData.blocks);
-            else alert("⚠️ 로컬 폴더가 연결되지 않아 이미지가 보이지 않을 수 있습니다.");
-            renderPages(); saveHistory();
-        }; r.readAsText(file);
-    }
-
-    function showLoading(msg) { const el=document.getElementById('loading-indicator'); el.innerText=msg; el.style.display='block'; }
-    function hideLoading() { document.getElementById('loading-indicator').style.display='none'; }
-    function saveHistory() { const str=JSON.stringify(docData); if(historyIndex>=0 && historyStack[historyIndex]===str)return; historyIndex++; historyStack=historyStack.slice(0,historyIndex); historyStack.push(str); if(historyStack.length>30){ historyStack.shift(); historyIndex--; } localStorage.setItem('editorAutoSave',str); }
-    function saveHistoryDebounced() { clearTimeout(renderTimer); renderTimer=setTimeout(saveHistory,500); }
-    function performUndo() { if(historyIndex>0){ historyIndex--; docData=JSON.parse(historyStack[historyIndex]); renderPages(); } }
-    function performRedo() { if(historyIndex<historyStack.length-1){ historyIndex++; docData=JSON.parse(historyStack[historyIndex]); renderPages(); } }
-    
     function createPage(num) {
         const div=document.createElement('div'); div.className='page'; if(num===1) div.classList.add('page-first');
         const headerHTML = num === 1 ? 
-            `<table class="header-table">
-                <colgroup><col class="col-title"><col class="col-label"><col class="col-input-wide"><col class="col-label"><col class="col-input-narrow"></colgroup>
-                <tr><td rowspan="2" class="col-title">TEST</td><td class="col-label">과정</td><td><input class="header-input" value="${docData.meta.title}" oninput="docData.meta.title=this.value;saveHistoryDebounced()"></td><td class="col-label">성명</td><td><input class="header-input"></td></tr>
-                <tr><td class="col-label">단원</td><td><input class="header-input" value="${docData.meta.subtitle}" oninput="docData.meta.subtitle=this.value;saveHistoryDebounced()"></td><td class="col-label">점수</td><td></td></tr>
-            </table>` : `<div class="header-line"></div>`;
+            `<table class="header-table"><colgroup><col class="col-title"><col class="col-label"><col class="col-input-wide"><col class="col-label"><col class="col-input-narrow"></colgroup><tr><td rowspan="2" class="col-title">TEST</td><td class="col-label">과정</td><td><input class="header-input" value="${docData.meta.title}" oninput="docData.meta.title=this.value;saveHistoryDebounced()"></td><td class="col-label">성명</td><td><input class="header-input"></td></tr><tr><td class="col-label">단원</td><td><input class="header-input" value="${docData.meta.subtitle}" oninput="docData.meta.subtitle=this.value;saveHistoryDebounced()"></td><td class="col-label">점수</td><td></td></tr></table>` : `<div class="header-line"></div>`;
         const footerHTML = num === 1 ? `<div class="footer-content-first">- ${num} -</div>` : `<div class="footer-line"></div><div>- ${num} -</div>`;
         div.innerHTML=`<div class="header-area">${headerHTML}</div><div class="body-container"><div class="column left"></div><div class="column right"></div></div><div class="page-footer">${footerHTML}</div>`;
         return div;
     }
 
+    // [Fix: Option C] 안전한 레이아웃 밸런싱
+    function rebalanceLayout() {
+        const container = document.getElementById('paper-container');
+        let pages = Array.from(container.querySelectorAll('.page'));
+        let columns = [];
+        pages.forEach(p => {
+            columns.push(p.querySelector('.column.left'));
+            columns.push(p.querySelector('.column.right'));
+        });
+
+        const MAX_LOOPS = 50; 
+        let loopCount = 0;
+
+        for (let i = 0; i < columns.length; i++) {
+            let col = columns[i];
+            if (loopCount++ > MAX_LOOPS) { console.warn("Layout rebalance limit reached."); break; }
+            
+            while (col.scrollHeight > col.clientHeight + 2) {
+                if (col.children.length <= 1) break; 
+                
+                const lastBlock = col.lastElementChild;
+                let nextCol = columns[i + 1];
+                if (!nextCol) {
+                    const newPageNum = pages.length + 1;
+                    const newPage = createPage(newPageNum);
+                    container.appendChild(newPage);
+                    pages.push(newPage);
+                    const nl = newPage.querySelector('.column.left');
+                    const nr = newPage.querySelector('.column.right');
+                    columns.push(nl);
+                    columns.push(nr);
+                    nextCol = nl;
+                }
+                
+                if (nextCol.firstChild) nextCol.insertBefore(lastBlock, nextCol.firstChild);
+                else nextCol.appendChild(lastBlock);
+            }
+        }
+    }
+
+    const debouncedRebalance = debounce(() => { rebalanceLayout(); }, 300);
+
     function renderPages() { 
-        const container = document.getElementById('paper-container'); container.innerHTML = ''; 
-        let pageNum=1, currentPage=createPage(pageNum); let colL=currentPage.querySelector('.left'), colR=currentPage.querySelector('.right'), curCol=colL; container.appendChild(currentPage); 
+        const container = document.getElementById('paper-container'); 
+        container.innerHTML = ''; 
+        if(docData.meta.zoom) { container.style.transform = `scale(${docData.meta.zoom})`; container.style.transformOrigin = 'top center'; document.getElementById('zoomRange').value = docData.meta.zoom; }
+
+        let pageNum = 1; let currentPage = createPage(pageNum); container.appendChild(currentPage);
+        let colL = currentPage.querySelector('.left'); let colR = currentPage.querySelector('.right'); let curCol = colL; 
+
+        function moveToNextColumn() {
+            if (curCol === colL) { curCol = colR; } 
+            else {
+                pageNum++; currentPage = createPage(pageNum); container.appendChild(currentPage);
+                colL = currentPage.querySelector('.left'); colR = currentPage.querySelector('.right'); curCol = colL;
+            }
+        }
+
         docData.blocks.forEach((block) => { 
-            if (block.type === 'break') { curCol.appendChild(createBlock(block)); if(curCol===colL) curCol=colR; else { pageNum++; currentPage=createPage(pageNum); container.appendChild(currentPage); colL=currentPage.querySelector('.left'); colR=currentPage.querySelector('.right'); curCol=colL; } return; } 
+            if (block.type === 'break') { curCol.appendChild(createBlock(block)); moveToNextColumn(); return; } 
             const el = createBlock(block); curCol.appendChild(el); 
-            if (curCol.scrollHeight > curCol.clientHeight + 5) { curCol.removeChild(el); if(curCol===colL) curCol=colR; else { pageNum++; currentPage=createPage(pageNum); container.appendChild(currentPage); colL=currentPage.querySelector('.left'); colR=currentPage.querySelector('.right'); curCol=colL; } curCol.appendChild(el); } 
+            if (curCol.scrollHeight > curCol.clientHeight + 5) { 
+                if (curCol.children.length === 1) { moveToNextColumn(); } 
+                else { curCol.removeChild(el); moveToNextColumn(); curCol.appendChild(el); } 
+            } 
         });
         
-        if(lastFocusId) {
-            setTimeout(() => {
-                const el = document.querySelector(`.block-wrapper[data-id="${lastFocusId}"] .editable-box`);
-                if(el) { el.focus(); const range=document.createRange(); range.selectNodeContents(el); range.collapse(false); const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(range); lastFocusId=null; }
-            }, 0);
-        }
-    }
-
-    function insertImageBoxSafe() {
-        if(document.activeElement && document.activeElement.isContentEditable) { insertImageBox(); } else { addBlockBelow('image'); }
-    }
-
-    function isCaretOnLastLine(element) {
-        const selection = window.getSelection(); if (selection.rangeCount === 0) return false;
-        const range = selection.getRangeAt(0); const rect = range.getBoundingClientRect(); const elementRect = element.getBoundingClientRect();
-        return (elementRect.bottom - rect.bottom) < 30; 
-    }
-    function isCaretOnFirstLine(element) {
-        const selection = window.getSelection(); if (selection.rangeCount === 0) return false;
-        const range = selection.getRangeAt(0); const rect = range.getBoundingClientRect(); const elementRect = element.getBoundingClientRect();
-        return (rect.top - elementRect.top) < 30;
-    }
-    function focusNextBlock(currentId, direction) {
-        const idx = docData.blocks.findIndex(b => b.id === currentId);
-        let nextIdx = idx + direction;
-        while(nextIdx >= 0 && nextIdx < docData.blocks.length) {
-            const nextBlock = docData.blocks[nextIdx];
-            if (['concept', 'example'].includes(nextBlock.type)) {
-                const nextEl = document.querySelector(`.block-wrapper[data-id="${nextBlock.id}"] .editable-box`);
-                if(nextEl) {
-                    nextEl.focus(); const nextWrap = nextEl.closest('.block-wrapper');
-                    nextWrap.classList.add('temp-show-handle'); setTimeout(() => nextWrap.classList.remove('temp-show-handle'), 1000);
-                }
-                return;
-            }
-            nextIdx += direction;
-        }
+        if(lastFocusId) { setTimeout(() => { const el = document.querySelector(`.block-wrapper[data-id="${lastFocusId}"] .editable-box`); if(el) { el.focus(); const r=document.createRange(); r.selectNodeContents(el); r.collapse(false); const s=window.getSelection(); s.removeAllRanges(); s.addRange(r); lastFocusId=null; } }, 0); }
     }
 
     function createBlock(block) {
         const wrap=document.createElement('div'); wrap.className='block-wrapper'; wrap.dataset.id=block.id;
         if(block.style && block.style.textAlign) wrap.style.textAlign = block.style.textAlign;
-        if(block.bgGray) wrap.classList.add('bg-gray-block');
+        if(block.bgGray) wrap.classList.add('bg-gray-block'); 
 
-        // [Fix 2] 드래그 조건 완화 (closest 사용)
-        wrap.draggable=true;
-        wrap.ondragstart=(e)=>{ 
-            if(!e.target.closest('.block-handle')) { e.preventDefault(); return; } 
-            dragSrcId=block.id; wrap.classList.add('dragging'); 
+        const actions = document.createElement('div'); actions.className = 'block-actions';
+        const btnBr = document.createElement('button'); btnBr.className = 'block-action-btn'; btnBr.innerText = '⤵'; btnBr.title='단 나누기'; btnBr.onclick=(e)=>{ e.stopPropagation(); contextTargetId=block.id; addBlockBelow('break'); };
+        const btnSp = document.createElement('button'); btnSp.className = 'block-action-btn'; btnSp.innerText = '▱'; btnSp.title='여백'; btnSp.onclick=(e)=>{ e.stopPropagation(); contextTargetId=block.id; addBlockBelow('spacer'); };
+        actions.appendChild(btnBr); actions.appendChild(btnSp); wrap.appendChild(actions);
+
+        wrap.addEventListener('click', (e) => {
+             if (!(e.ctrlKey || e.metaKey)) return;
+             if (e.altKey) { e.preventDefault(); e.stopPropagation(); contextTargetId = block.id; addBlockBelow('break'); return; }
+             if (e.shiftKey) { e.preventDefault(); e.stopPropagation(); contextTargetId = block.id; addBlockBelow('spacer'); return; }
+        });
+
+        wrap.draggable = false; 
+        const handle = document.createElement('div'); handle.className = 'block-handle'; handle.draggable = true; 
+        handle.addEventListener('dragstart', (e) => {
+            e.stopPropagation(); dragSrcId = block.id;
+            const wrapper = e.target.closest('.block-wrapper'); wrapper.classList.add('dragging');
+            if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', block.id); try { e.dataTransfer.setDragImage(wrapper, 0, 0); } catch(err) {} }
+        });
+        handle.addEventListener('dragend', (e) => {
+             e.stopPropagation(); dragSrcId = null;
+             document.querySelectorAll('.block-wrapper').forEach(w => w.classList.remove('dragging', 'drop-target-top', 'drop-target-bottom'));
+             ManualRenderer.syncAllBlocks();
+        });
+        
+        // [Fix: UX Improvement] 토글 기능 추가
+        handle.onclick = (e) => {
+            e.stopPropagation();
+            const m = document.getElementById('context-menu');
+            if (m.style.display === 'block' && contextTargetId === block.id) {
+                m.style.display = 'none';
+                return;
+            }
+            contextTargetId = block.id;
+            m.style.display = 'block';
+            m.style.left = e.clientX + 'px';
+            m.style.top = e.clientY + 'px';
         };
-        wrap.ondragover=(e)=>{ e.preventDefault(); const r=wrap.getBoundingClientRect(); wrap.classList.remove('drop-target-top','drop-target-bottom'); if((e.clientY-r.top)<(r.height/2)) wrap.classList.add('drop-target-top'); else wrap.classList.add('drop-target-bottom'); };
-        wrap.ondrop=(e)=>{ e.stopPropagation(); e.preventDefault(); if(dragSrcId && dragSrcId!==block.id){ const srcIdx=docData.blocks.findIndex(b=>b.id===dragSrcId); const tgtIdx=docData.blocks.findIndex(b=>b.id===block.id); const [moved]=docData.blocks.splice(srcIdx,1); if(wrap.classList.contains('drop-target-bottom')) docData.blocks.splice(tgtIdx+1,0,moved); else docData.blocks.splice(tgtIdx,0,moved); renderPages(); saveHistory(); } document.querySelectorAll('.block-wrapper').forEach(w=>w.classList.remove('dragging','drop-target-top','drop-target-bottom')); };
-
-        const handle=document.createElement('div'); handle.className='block-handle';
-        handle.onclick=(e)=>{ e.stopPropagation(); contextTargetId=block.id; const m=document.getElementById('context-menu'); m.style.display='block'; m.style.left=e.clientX+'px'; m.style.top=e.clientY+'px'; };
         wrap.appendChild(handle);
 
+        wrap.ondragover=(e)=>{ e.preventDefault(); const r=wrap.getBoundingClientRect(); wrap.classList.remove('drop-target-top','drop-target-bottom'); if((e.clientY-r.top)<(r.height/2)) wrap.classList.add('drop-target-top'); else wrap.classList.add('drop-target-bottom'); };
+        
+        // [Fix] 드롭 충돌 완전 해결 (타입 기반 체크)
+        wrap.ondrop=(e)=>{ 
+            // 1. 만약 드롭된 데이터가 '파일'이면 -> 블록 이동이 아님 -> Body로 흘려보냄
+            const types = e.dataTransfer.types;
+            if (types && (Array.from(types).includes('Files'))) {
+                return; // stopPropagation 하지 않음 -> Body가 처리
+            }
+
+            // 2. 파일이 아니면 (내부 블록 이동) -> 여기서 처리하고 끝냄
+            e.preventDefault(); 
+            e.stopPropagation(); // Body로 가는 것 막음
+
+            if(dragSrcId && dragSrcId !== block.id){ 
+                const srcIdx=docData.blocks.findIndex(b=>b.id===dragSrcId); const tgtIdx=docData.blocks.findIndex(b=>b.id===block.id); 
+                const [moved]=docData.blocks.splice(srcIdx,1); 
+                if(wrap.classList.contains('drop-target-bottom')) docData.blocks.splice(tgtIdx+1,0,moved); else docData.blocks.splice(tgtIdx,0,moved); 
+                (async () => {
+                    renderPages(); 
+                    await ManualRenderer.renderAll(); 
+                    saveHistory();
+                })();
+            } 
+            document.querySelectorAll('.block-wrapper').forEach(w=>w.classList.remove('dragging','drop-target-top','drop-target-bottom')); 
+        };
+
         if(block.type==='break'){
-            const br=document.createElement('div'); br.className='break-line'; br.onclick=()=>{if(confirm("단 나누기 삭제?"))deleteBlockById(block.id);}; wrap.appendChild(br);
+            const br=document.createElement('div'); br.className='break-line'; 
+            br.onclick=async ()=>{ if(confirm("단 나누기 삭제?")) await deleteBlockById(block.id); }; 
+            wrap.appendChild(br);
         } else if(block.type==='spacer'){
             const sp=document.createElement('div'); sp.className='spacer-block'; sp.style.height=(block.height||50)+'px';
             sp.onmousedown=(e)=>{ const sY=e.clientY, sH=parseInt(sp.style.height); const mv=(ev)=>{ const nH=Math.max(10, sH+(ev.clientY-sY)); sp.style.height=nH+'px'; block.height=nH; }; window.addEventListener('mousemove',mv); window.addEventListener('mouseup',()=>{window.removeEventListener('mousemove',mv); saveHistory();},{once:true}); }; wrap.appendChild(sp);
@@ -781,108 +826,315 @@
             if(block.bordered) box.classList.add('bordered-box');
             box.innerHTML=block.content;
             box.contentEditable=true;
-            
-            box.oninput=()=>{ updateBlockContent(block.id, box.innerHTML, true); };
-            
+            box.addEventListener('blur', async () => {
+                if(!window.isMathJaxReady) return;
+                if(box.innerText.includes('[빈칸:') || box.innerText.includes('$')) {
+                    if(box.innerText.includes('[빈칸:')) box.innerHTML = box.innerHTML.replace(/\[빈칸:(.*?)\]/g, '<span class="blank-box" contenteditable="false">$1</span>');
+                    if(box.innerText.includes('$')) await ManualRenderer.typesetElement(box);
+                }
+                updateBlockContent(block.id, cleanRichContentToTex(box.innerHTML), true);
+                debouncedRebalance(); 
+            });
+            box.oninput=()=>{ const cleanHTML = cleanRichContentToTex(box.innerHTML); updateBlockContent(block.id, cleanHTML, false); debouncedRebalance(); };
             box.addEventListener('mousedown', (e) => {
                 if(e.target.tagName==='IMG') { showResizer(e.target); e.stopPropagation(); selectedImage=e.target; }
-                if(e.target.classList.contains('image-placeholder')) {
-                    e.stopPropagation(); if(selectedPlaceholder) selectedPlaceholder.classList.remove('selected');
-                    selectedPlaceholder = e.target; selectedPlaceholder.classList.add('selected'); selectedPlaceholder.setAttribute('contenteditable', 'false');
-                }
+                if(e.target.classList.contains('image-placeholder')) { e.stopPropagation(); if(selectedPlaceholder) selectedPlaceholder.classList.remove('selected'); selectedPlaceholder = e.target; selectedPlaceholder.classList.add('selected'); selectedPlaceholder.setAttribute('contenteditable', 'false'); }
             });
-            
-            box.onkeydown = (e) => {
-                if(e.key === 'Tab') { 
-                    e.preventDefault(); 
-                    if(e.shiftKey) document.execCommand('insertHTML', false, '&nbsp;'.repeat(10));
-                    else if(e.ctrlKey) focusNextBlock(block.id, -1);
-                    else focusNextBlock(block.id, 1);
-                    return; 
-                }
-                
-                if(e.key === 'ArrowDown') { if (isCaretOnLastLine(box)) { e.preventDefault(); focusNextBlock(block.id, 1); } }
-                if(e.key === 'ArrowUp') { if (isCaretOnFirstLine(box)) { e.preventDefault(); focusNextBlock(block.id, -1); } }
-                
-                if(e.key === 'Enter') {
-                    if(e.ctrlKey) { e.preventDefault(); contextTargetId = block.id; addBlockBelow('break'); return; }
-                    if(e.altKey) { e.preventDefault(); contextTargetId = block.id; addBlockAbove('example'); return; }
-                    if(e.shiftKey) return; 
-                    e.preventDefault(); contextTargetId = block.id; addBlockBelow('example'); 
-                }
-
-                if(e.key === 'Backspace') { 
+            box.onkeydown = async (e) => {
+                if (e.key === 'Backspace') {
+                    const atomBefore = getAtomBeforeCaret(box); if (atomBefore) { e.preventDefault(); atomBefore.remove(); updateBlockContent(block.id, cleanRichContentToTex(box.innerHTML), true); return; }
                     if(box.innerText.trim() === '' && box.innerHTML.replace(/<br>/g,'').trim() === '') { 
                         const prevIdx = docData.blocks.findIndex(b=>b.id===block.id) - 1; 
-                        if (prevIdx >= 0) { e.preventDefault(); deleteBlockById(block.id); lastFocusId = docData.blocks[prevIdx].id; renderPages(); } 
-                    } 
+                        if (prevIdx >= 0) { 
+                            e.preventDefault(); 
+                            const prevId = docData.blocks[prevIdx].id;
+                            await deleteBlockById(block.id); 
+                            lastFocusId = prevId;
+                        } 
+                    }
                 }
-                
+                if (e.key === 'Enter' && e.shiftKey) { const atomAfter = getAtomAfterCaret(box); if (atomAfter) { e.preventDefault(); const br = document.createElement('br'); atomAfter.parentNode.insertBefore(br, atomAfter); const r = document.createRange(); const s = window.getSelection(); r.setStartAfter(br); r.collapse(true); s.removeAllRanges(); s.addRange(r); updateBlockContent(block.id, cleanRichContentToTex(box.innerHTML), true); return; } }
+                if(e.key === 'Tab') { e.preventDefault(); if(e.shiftKey) document.execCommand('insertHTML', false, '&nbsp;'.repeat(10)); else if(e.ctrlKey) focusNextBlock(block.id, -1); else focusNextBlock(block.id, 1); return; }
+                if(e.key === 'ArrowDown') { if (isCaretOnLastLine(box)) { e.preventDefault(); focusNextBlock(block.id, 1); } }
+                if(e.key === 'ArrowUp') { if (isCaretOnFirstLine(box)) { e.preventDefault(); focusNextBlock(block.id, -1); } }
+                if(e.key === 'Enter' && !e.shiftKey) {
+                    if(e.ctrlKey) { e.preventDefault(); contextTargetId = block.id; addBlockBelow('break'); return; }
+                    if(e.altKey) { e.preventDefault(); contextTargetId = block.id; addBlockAbove('example'); return; }
+                    e.preventDefault(); contextTargetId = block.id; addBlockBelow('example'); 
+                }
+                if((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'b' || e.key === 'B')) { e.preventDefault(); contextTargetId=block.id; toggleBorder(); return; }
+                if((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'g' || e.key === 'G')) { e.preventDefault(); contextTargetId=block.id; toggleGrayBg(); return; }
+                if((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) { e.preventDefault(); contextTargetId=block.id; duplicateTargetBlock(); return; }
+                if((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'i' || e.key === 'I')) { e.preventDefault(); insertImageBox(); return; }
                 if((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'l' || e.key === 'L')) { e.preventDefault(); contextTargetId=block.id; applyAlign('left'); return; }
                 if((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'r' || e.key === 'R')) { e.preventDefault(); contextTargetId=block.id; applyAlign('right'); return; }
                 if((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'm' || e.key === 'M')) { e.preventDefault(); contextTargetId=block.id; applyAlign('center'); return; }
-                if((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'i' || e.key === 'I')) { e.preventDefault(); insertImageBox(); return; }
             };
-
             wrap.appendChild(box);
         }
         return wrap;
     }
 
-    function updateBlockContent(id, html, recordHistory=true) { 
-        const b = docData.blocks.find(x=>x.id===id); 
-        if(b) b.content=html; 
-        if(recordHistory) saveHistoryDebounced(); 
-    }
-    function deleteBlockById(id) { docData.blocks = docData.blocks.filter(b=>b.id!==id); renderPages(); saveHistory(); }
-    function duplicateTargetBlock() { if(!contextTargetId) return; const idx = docData.blocks.findIndex(b=>b.id===contextTargetId); const clone = JSON.parse(JSON.stringify(docData.blocks[idx])); clone.id = 'copy_'+Date.now(); docData.blocks.splice(idx+1, 0, clone); renderPages(); saveHistory(); document.getElementById('context-menu').style.display='none'; }
-    function addBlockBelow(type) { let targetIdx = contextTargetId ? docData.blocks.findIndex(b=>b.id===contextTargetId) : docData.blocks.length-1; const newBlock = createNewBlockData(type); docData.blocks.splice(targetIdx+1, 0, newBlock); if(type!=='break') lastFocusId = newBlock.id; renderPages(); saveHistory(); document.getElementById('context-menu').style.display='none'; }
-    function addBlockAbove(type) { if(!contextTargetId) return; let targetIdx = docData.blocks.findIndex(b=>b.id===contextTargetId); const newBlock = createNewBlockData(type); docData.blocks.splice(targetIdx, 0, newBlock); lastFocusId = newBlock.id; renderPages(); saveHistory(); document.getElementById('context-menu').style.display='none'; }
-    
-    // [Fix 3] 새 블록 생성 시 라벨 자동 삽입 제거 (깨끗한 빈 줄 생성)
-    function createNewBlockData(type) { 
-        const newBlock = { id:'b_'+Date.now(), type:type, content:'' }; 
-        if(type==='concept') newBlock.content='<span class="q-label">개념</span> '; 
-        // if(type==='example') newBlock.content='<span class="q-label">예제</span> '; // 삭제됨: 이제 기본은 빈 줄
-        if(type==='image') { newBlock.type='example'; newBlock.content='<span class="image-placeholder" contenteditable="false">이미지 박스 (Click to Select)</span>'; }
-        if(type==='break') newBlock.type='break'; 
-        if(type==='spacer') { newBlock.type='spacer'; newBlock.height=50; } 
-        return newBlock; 
+    function handleGlobalDblClick(e) {
+        const mjx = e.target.closest('mjx-container'); if (mjx) { e.preventDefault(); e.stopPropagation(); ManualRenderer.revertToSource(mjx); const wrap = e.target.closest('.block-wrapper'); if(wrap) ManualRenderer.syncBlock(wrap.dataset.id); return; }
+        const blank = e.target.closest('.blank-box'); if (blank) { e.preventDefault(); e.stopPropagation(); const text = blank.innerText; blank.replaceWith(document.createTextNode(`[빈칸:${text}]`)); const wrap = e.target.closest('.block-wrapper'); if(wrap) ManualRenderer.syncBlock(wrap.dataset.id); return; }
+        const placeholder = e.target.closest('.image-placeholder'); if (placeholder) { e.preventDefault(); e.stopPropagation(); if(selectedPlaceholder) selectedPlaceholder.classList.remove('selected'); selectedPlaceholder = placeholder; placeholder.classList.add('selected'); placeholder.setAttribute('contenteditable', 'false'); document.getElementById('imgUpload').click(); }
     }
     
-    function deleteTargetBlock() { if(contextTargetId) deleteBlockById(contextTargetId); document.getElementById('context-menu').style.display='none'; }
-    function applyAlign(align) { const b = docData.blocks.find(x=>x.id===contextTargetId); if(b) { if(!b.style) b.style={}; b.style.textAlign=align; } renderPages(); saveHistory(); document.getElementById('context-menu').style.display='none'; }
-    function toggleGrayBg() { const b = docData.blocks.find(x=>x.id===contextTargetId); if(b) b.bgGray = !b.bgGray; renderPages(); saveHistory(); document.getElementById('context-menu').style.display='none'; }
-    function toggleBorder() { const b = docData.blocks.find(x=>x.id===contextTargetId); if(b) b.bordered = !b.bordered; renderPages(); saveHistory(); document.getElementById('context-menu').style.display='none'; }
+    // [Fix] 메뉴 닫기 기능 보완
+    function handleClickOutside(e) { 
+        if (!e.target.closest('#floating-toolbar') && !e.target.closest('.ft-btn')) hideToolbar(); 
+        if (!e.target.closest('img') && !e.target.closest('#image-resizer')) hideResizer(); 
+        
+        const menu = document.getElementById('context-menu');
+        if (menu && menu.style.display === 'block') {
+            const isMenuInside = e.target.closest('#context-menu');
+            const isHandle = e.target.closest('.block-handle');
+            if (!isMenuInside && !isHandle) { menu.style.display = 'none'; }
+        }
+
+        if (!e.target.classList.contains('image-placeholder') && !e.target.closest('#imgUpload')) { if(selectedPlaceholder) { selectedPlaceholder.classList.remove('selected'); selectedPlaceholder.setAttribute('contenteditable', 'false'); } selectedPlaceholder = null; } 
+    }
+    
+    function handleGlobalMouseUp(e) { setTimeout(() => { const sel = window.getSelection(); if (sel.rangeCount && !sel.isCollapsed) { const range = sel.getRangeAt(0); const container = range.commonAncestorContainer.nodeType===1 ? range.commonAncestorContainer : range.commonAncestorContainer.parentNode; if (container.closest('.editable-box')) { const rect = range.getBoundingClientRect(); const tb = document.getElementById('floating-toolbar'); tb.style.display = 'flex'; tb.style.top = (rect.top + window.scrollY - 45) + 'px'; tb.style.left = (rect.left + window.scrollX + rect.width / 2) + 'px'; } } }, 10); }
+    function getCurrentBlockId() { if (contextTargetId) return contextTargetId; if (document.activeElement && document.activeElement.closest('.block-wrapper')) return document.activeElement.closest('.block-wrapper').dataset.id; return lastFocusId; }
+    
+    // [Fix] 구문 오류 수정 및 ESC 키 핸들링 추가
+    function handleGlobalKeydown(e) { 
+        // [추가] ESC 키로 닫기
+        if (e.key === 'Escape') {
+            document.getElementById('context-menu').style.display = 'none';
+            document.getElementById('floating-toolbar').style.display = 'none';
+            hideResizer();
+            closeModal('import-modal');
+            closeModal('find-replace-modal');
+            return;
+        }
+
+        keysPressed[e.key.toLowerCase()] = true; 
+        if ((e.ctrlKey || e.metaKey) && keysPressed['q'] && keysPressed['f']) { e.preventDefault(); openModal('find-replace-modal'); document.getElementById('fr-find-input').focus(); keysPressed['f'] = false; return; } 
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveProjectJSON(); return; } 
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); performRedo(); return; } 
+        else if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); performUndo(); return; } 
+        if (e.ctrlKey && e.altKey && (e.key === 'g' || e.key === 'G')) { e.preventDefault(); contextTargetId = getCurrentBlockId(); if(contextTargetId) toggleGrayBg(); return; } 
+        if (e.ctrlKey && e.altKey && (e.key === 'b' || e.key === 'B')) { e.preventDefault(); contextTargetId = getCurrentBlockId(); if(contextTargetId) toggleBorder(); return; } 
+        if (e.ctrlKey && e.key === 'd') { e.preventDefault(); contextTargetId = getCurrentBlockId(); if(contextTargetId) duplicateTargetBlock(); return; }
+    } // [Fix] 여기에 닫는 괄호를 추가하여 에러 해결
+
+    async function handleGlobalPaste(e) { 
+        let target = null; 
+        if (selectedPlaceholder && selectedPlaceholder.getAttribute('contenteditable') === 'false') target = selectedPlaceholder; 
+        else { const sel = window.getSelection(); if (sel.rangeCount) { const node = sel.anchorNode; const el = node.nodeType === 1 ? node : node.parentElement; if (el.closest('.editable-box')) target = 'cursor'; } } 
+        const items = (e.clipboardData || e.originalEvent.clipboardData).items; 
+        for (let item of items) { 
+            if (item.kind === 'file' && item.type.includes('image/')) { 
+                if(!target) return; e.preventDefault(); const file = item.getAsFile(); showLoading("💾 이미지 저장 중..."); 
+                let saved = null; 
+                if(FileSystem.dirHandle) saved = await FileSystem.saveImage(file); 
+                else { const reader = new FileReader(); saved = await new Promise(r => { reader.onload=ev=>r({url:ev.target.result, path:null}); reader.readAsDataURL(file); }); } 
+                if(!saved) { hideLoading(); return; } 
+                hideLoading(); const newImg = document.createElement('img'); newImg.src = saved.url; 
+                if(saved.path) newImg.dataset.path = saved.path; newImg.style.maxWidth = '100%'; 
+                if (target === selectedPlaceholder) { target.replaceWith(newImg); updateBlockContent(newImg.closest('.block-wrapper').dataset.id, newImg.closest('.editable-box').innerHTML); selectedPlaceholder = null; } 
+                else if (target === 'cursor') { document.execCommand('insertHTML', false, newImg.outerHTML); } 
+                saveHistoryDebounced(); return; 
+            } 
+        } 
+    }
+
+    function loadProjectFromFile(file) { if(!file) return; const r = new FileReader(); r.onload = async (e) => { try { docData = JSON.parse(e.target.result); if (FileSystem.dirHandle) await FileSystem.loadImagesForDisplay(docData.blocks); renderPages(); saveHistory(); await ManualRenderer.renderAll(); } catch(err) { alert("파일 로드 실패: " + err.message); } }; r.readAsText(file); }
+    function loadProjectJSONFromInput(input) { loadProjectFromFile(input.files[0]); }
+    function showLoading(msg) { const el=document.getElementById('loading-indicator'); el.innerText=msg; el.style.display='block'; }
+    function hideLoading() { document.getElementById('loading-indicator').style.display='none'; }
+    function saveHistory() { const cleanData = JSON.parse(JSON.stringify(docData)); cleanData.blocks.forEach(b => b.content = cleanRichContentToTex(b.content)); const str=JSON.stringify(cleanData); if(historyIndex>=0 && historyStack[historyIndex]===str)return; historyIndex++; historyStack=historyStack.slice(0,historyIndex); historyStack.push(str); if(historyStack.length>30){ historyStack.shift(); historyIndex--; } localStorage.setItem('editorAutoSave',str); }
+    function saveHistoryDebounced() { clearTimeout(renderTimer); renderTimer=setTimeout(saveHistory,500); }
+    
+    async function performUndo() { 
+        if(historyIndex>0){ 
+            historyIndex--; 
+            docData=JSON.parse(historyStack[historyIndex]); 
+            renderPages(); 
+            await ManualRenderer.renderAll(); 
+        } 
+    }
+    async function performRedo() { 
+        if(historyIndex<historyStack.length-1){ 
+            historyIndex++; 
+            docData=JSON.parse(historyStack[historyIndex]); 
+            renderPages(); 
+            await ManualRenderer.renderAll(); 
+        } 
+    }
+
+    function updateBlockContent(id, html, recordHistory=true) { const b = docData.blocks.find(x=>x.id===id); if(b) b.content=html; if(recordHistory) saveHistoryDebounced(); }
+    
+    async function deleteBlockById(id) { 
+        docData.blocks = docData.blocks.filter(b=>b.id!==id); 
+        renderPages(); 
+        await ManualRenderer.renderAll();
+        saveHistory(); 
+    }
+    
+    function insertImageBoxSafe() { if(document.activeElement && document.activeElement.isContentEditable) { insertImageBox(); } else { addBlockBelow('image'); } }
+    function isCaretOnLastLine(element) { const selection = window.getSelection(); if (selection.rangeCount === 0) return false; const range = selection.getRangeAt(0); const rect = range.getBoundingClientRect(); const elementRect = element.getBoundingClientRect(); return (elementRect.bottom - rect.bottom) < 30; }
+    function isCaretOnFirstLine(element) { const selection = window.getSelection(); if (selection.rangeCount === 0) return false; const range = selection.getRangeAt(0); const rect = range.getBoundingClientRect(); const elementRect = element.getBoundingClientRect(); return (rect.top - elementRect.top) < 30; }
+    function focusNextBlock(currentId, direction) { const idx = docData.blocks.findIndex(b => b.id === currentId); let nextIdx = idx + direction; while(nextIdx >= 0 && nextIdx < docData.blocks.length) { const nextBlock = docData.blocks[nextIdx]; if (['concept', 'example'].includes(nextBlock.type)) { const nextEl = document.querySelector(`.block-wrapper[data-id="${nextBlock.id}"] .editable-box`); if(nextEl) { nextEl.focus(); const nextWrap = nextEl.closest('.block-wrapper'); nextWrap.classList.add('temp-show-handle'); setTimeout(() => nextWrap.classList.remove('temp-show-handle'), 1000); } return; } nextIdx += direction; } }
+    
+    async function duplicateTargetBlock() { 
+        if(!contextTargetId) return; 
+        const idx = docData.blocks.findIndex(b=>b.id===contextTargetId); 
+        const clone = JSON.parse(JSON.stringify(docData.blocks[idx])); 
+        clone.id = 'copy_'+Date.now(); 
+        docData.blocks.splice(idx+1, 0, clone); 
+        renderPages(); 
+        await ManualRenderer.renderAll(); 
+        saveHistory(); 
+        document.getElementById('context-menu').style.display='none'; 
+    }
+    
+    async function addBlockBelow(type) { 
+        let targetIdx = contextTargetId ? docData.blocks.findIndex(b=>b.id===contextTargetId) : docData.blocks.length-1; 
+        const newBlock = createNewBlockData(type); 
+        docData.blocks.splice(targetIdx+1, 0, newBlock); 
+        if(type!=='break') lastFocusId = newBlock.id; 
+        renderPages(); 
+        await ManualRenderer.renderAll(); 
+        saveHistory(); 
+        document.getElementById('context-menu').style.display='none'; 
+    }
+    
+    async function addBlockAbove(type) { 
+        if(!contextTargetId) return; 
+        let targetIdx = docData.blocks.findIndex(b=>b.id===contextTargetId); 
+        const newBlock = createNewBlockData(type); 
+        docData.blocks.splice(targetIdx, 0, newBlock); 
+        lastFocusId = newBlock.id; 
+        renderPages(); 
+        await ManualRenderer.renderAll(); 
+        saveHistory(); 
+        document.getElementById('context-menu').style.display='none'; 
+    }
+    
+    function createNewBlockData(type) { const newBlock = { id:'b_'+Date.now(), type:type, content:'' }; if(type==='concept') newBlock.content='<span class="q-label">개념</span> '; if(type==='image') { newBlock.type='example'; newBlock.content='<span class="image-placeholder" contenteditable="false">이미지 박스 (Click to Select)</span>'; } if(type==='break') newBlock.type='break'; if(type==='spacer') { newBlock.type='spacer'; newBlock.height=50; } return newBlock; }
+    
+    async function deleteTargetBlock() { 
+        if(contextTargetId) await deleteBlockById(contextTargetId); 
+        document.getElementById('context-menu').style.display='none'; 
+    }
+    
+    async function applyAlign(align) { const b = docData.blocks.find(x=>x.id===contextTargetId); if(b) { if(!b.style) b.style={}; b.style.textAlign=align; } renderPages(); await ManualRenderer.renderAll(); saveHistory(); document.getElementById('context-menu').style.display='none'; }
+    async function toggleGrayBg() { const b = docData.blocks.find(x=>x.id===contextTargetId); if(b) b.bgGray = !b.bgGray; renderPages(); await ManualRenderer.renderAll(); saveHistory(); document.getElementById('context-menu').style.display='none'; }
+    async function toggleBorder() { const b = docData.blocks.find(x=>x.id===contextTargetId); if(b) b.bordered = !b.bordered; renderPages(); await ManualRenderer.renderAll(); saveHistory(); document.getElementById('context-menu').style.display='none'; }
+    
     function insertImageBox() { document.execCommand('insertHTML', false, `<span class="image-placeholder" contenteditable="false">이미지 박스 (Click to Select)</span>`); document.getElementById('context-menu').style.display='none'; }
     function execStyle(cmd, val=null) { document.execCommand(cmd, false, val); }
     function openModal(id) { document.getElementById(id).style.display = 'flex'; }
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-    function executeFindReplace() { const findStr = document.getElementById('fr-find-input').value; const repStr = document.getElementById('fr-replace-input').value; if (!findStr) return; docData.blocks.forEach(block => { block.content = block.content.replaceAll(findStr, repStr); }); renderPages(); saveHistory(); closeModal('find-replace-modal'); }
+    function executeFindReplace() { const findStr = document.getElementById('fr-find-input').value; const repStr = document.getElementById('fr-replace-input').value; if (!findStr) return; docData.blocks.forEach(block => { block.content = block.content.replaceAll(findStr, repStr); }); renderPages(); ManualRenderer.renderAll(); saveHistory(); closeModal('find-replace-modal'); }
     function showResizer(img) { selectedImage = img; const resizer = document.getElementById('image-resizer'); const rect = img.getBoundingClientRect(); resizer.style.display = 'block'; resizer.style.top = (rect.top + window.scrollY) + 'px'; resizer.style.left = (rect.left + window.scrollX) + 'px'; resizer.style.width = rect.width + 'px'; resizer.style.height = rect.height + 'px'; }
     function hideResizer() { document.getElementById('image-resizer').style.display = 'none'; selectedImage = null; }
-    function hideToolbar() { document.getElementById('floating-toolbar').style.display = 'none'; }
     function initResizeImage(e) { e.preventDefault(); e.stopPropagation(); if(!selectedImage) return; const startX = e.clientX, startY = e.clientY; const startW = selectedImage.offsetWidth, startH = selectedImage.offsetHeight; const zoom = docData.meta.zoom || 1.0; function doDrag(evt) { const newW = Math.max(20, startW + (evt.clientX - startX) / zoom); const newH = Math.max(20, startH + (evt.clientY - startY) / zoom); selectedImage.style.width = newW + 'px'; selectedImage.style.height = newH + 'px'; showResizer(selectedImage); } function stopDrag() { window.removeEventListener('mousemove', doDrag); window.removeEventListener('mouseup', stopDrag); updateBlockContent(selectedImage.closest('.block-wrapper').dataset.id, selectedImage.closest('.editable-box').innerHTML); } window.addEventListener('mousemove', doDrag); window.addEventListener('mouseup', stopDrag); }
+    
     function handleImageUpload(e) { 
         if(!selectedPlaceholder || !e.target.files[0]) return;
         const file = e.target.files[0];
-        if(FileSystem.dirHandle) {
-            FileSystem.saveImage(file).then(saved => {
-                if(saved) {
-                    const newImg = document.createElement('img'); newImg.src = saved.url; newImg.dataset.path = saved.path; newImg.style.maxWidth = '100%';
-                    selectedPlaceholder.replaceWith(newImg); updateBlockContent(newImg.closest('.block-wrapper').dataset.id, newImg.closest('.editable-box').innerHTML); selectedPlaceholder = null;
-                }
-            });
-        } else {
-            const r=new FileReader(); r.onload=(evt)=>{ 
-                const newImg = document.createElement('img'); newImg.src = evt.target.result; newImg.style.maxWidth = '100%';
-                selectedPlaceholder.replaceWith(newImg); updateBlockContent(newImg.closest('.block-wrapper').dataset.id, newImg.closest('.editable-box').innerHTML); selectedPlaceholder = null;
-            }; r.readAsDataURL(file);
-        }
+        const replaceImage = (url, path) => { const newImg = document.createElement('img'); newImg.src = url; if(path) newImg.dataset.path = path; newImg.style.maxWidth = '100%'; selectedPlaceholder.replaceWith(newImg); updateBlockContent(newImg.closest('.block-wrapper').dataset.id, newImg.closest('.editable-box').innerHTML); selectedPlaceholder = null; };
+        if(FileSystem.dirHandle) { FileSystem.saveImage(file).then(saved => { if(saved) replaceImage(saved.url, saved.path); }); } 
+        else { const r=new FileReader(); r.onload=(evt)=>{ replaceImage(evt.target.result, null); }; r.readAsDataURL(file); }
         e.target.value='';
     }
-    function resetProject(){ if(confirm('초기화?')) { docData.blocks=[]; renderPages(); saveHistory(); } }
+    
+    function confirmImport(overwrite) {
+        const input = document.getElementById('import-textarea').value.trim(); if(!input) return;
+        const limit = parseInt(document.getElementById('setting-limit').value) || 0; const addSpacer = document.getElementById('setting-spacer').checked;
+        let finalBlocks = [];
+        try {
+            let isJson = false; let parsedJson = null;
+            if (input.startsWith('[') || input.startsWith('{')) { try { parsedJson = JSON.parse(input); if (typeof parsedJson === 'object' && parsedJson !== null) isJson = true; } catch (e) {} }
+            if (isJson) { const arr = Array.isArray(parsedJson) ? parsedJson : [parsedJson]; finalBlocks = arr.map(item => ({ id: 'imp_json_' + Date.now() + Math.random(), type: item.type || 'example', content: item.content || '', bordered: item.bordered || false, bgGray: item.bgGray || false })); } 
+            else if (input.includes('<div') && input.includes('data-item')) { const parser = new DOMParser(); const doc = parser.parseFromString(input, 'text/html'); const items = doc.querySelectorAll('.data-item'); items.forEach(i => { let t = 'example', c = i.innerHTML; if(i.querySelector('.concept-box')) { t = 'concept'; c = i.querySelector('.concept-box').innerHTML; } else if(i.querySelector('.answer-area')) { t = 'answer'; c = i.querySelector('.answer-area').innerHTML; } finalBlocks.push({ id: 'imp_html_' + Date.now() + Math.random(), type: t, content: c }); }); } 
+            else { finalBlocks = ImportParser.parse(input); }
+            let processedBlocks = []; let countInColumn = 0;
+            finalBlocks.forEach((b, idx) => { processedBlocks.push(b); if(b.type !== 'answer') { countInColumn++; if(addSpacer) processedBlocks.push({id:'sp_'+Math.random(), type:'spacer', height:50}); } if (limit > 0 && countInColumn >= limit && idx < finalBlocks.length - 1) { processedBlocks.push({id:'br_'+Math.random(), type:'break'}); countInColumn = 0; } });
+            if(overwrite) docData.blocks = processedBlocks; else docData.blocks = docData.blocks.concat(processedBlocks);
+            closeModal('import-modal'); 
+            
+            (async () => {
+                renderPages(); 
+                await ManualRenderer.renderAll(); 
+                saveHistory();
+            })();
+        } catch(e) { console.error(e); alert("데이터 인식 실패: "+e.message); }
+    }
+
+    function resetProject(){ if(confirm('초기화하시겠습니까? (저장되지 않은 내용은 삭제됩니다)')) { docData.blocks=[{ id: 'b0', type: 'concept', content: '<span class="q-label">안내</span> 내용 입력...' }]; renderPages(); saveHistory(); } }
     async function printWithMath(){ showLoading("🖨️ 인쇄 준비 중..."); window.print(); hideLoading(); }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const saved = localStorage.getItem('editorAutoSave');
+        if(saved) { try { docData = JSON.parse(saved); } catch(e) { console.error("AutoSave Load Failed"); } }
+        renderPages(); saveHistory(); 
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('mouseup', handleGlobalMouseUp);
+        document.addEventListener('keydown', handleGlobalKeydown);
+        document.addEventListener('keyup', (e) => keysPressed[e.key.toLowerCase()] = false);
+        document.addEventListener('paste', handleGlobalPaste);
+        document.addEventListener('dblclick', handleGlobalDblClick);
+        document.getElementById('imgUpload').addEventListener('change', handleImageUpload);
+        const resizeHandle = document.querySelector('.resizer-handle');
+        if(resizeHandle) resizeHandle.addEventListener('mousedown', initResizeImage);
+        
+        const zoomRange = document.getElementById('zoomRange');
+        zoomRange.addEventListener('input', (e) => { 
+            const z = parseFloat(e.target.value);
+            docData.meta.zoom = z; 
+            const container = document.getElementById('paper-container');
+            container.style.transform = `scale(${z})`;
+            container.style.transformOrigin = 'top center';
+        });
+        zoomRange.addEventListener('change', async (e) => { 
+            renderPages(); 
+            await ManualRenderer.renderAll(); 
+        });
+        
+        const body = document.body;
+        body.addEventListener('dragover', (e) => { 
+            if(dragSrcId) return; 
+            e.preventDefault(); 
+            body.classList.add('drag-over'); 
+        });
+        body.addEventListener('dragleave', (e) => { if(!e.relatedTarget) body.classList.remove('drag-over'); });
+        
+        // [Fix] Body 드롭 핸들러 보완: 파일이 아니면 무시
+        body.addEventListener('drop', (e) => {
+            if(dragSrcId) return; 
+            
+            // 파일이 포함되지 않은 드롭(ex: 텍스트 이동)이면 그냥 무시
+            const types = e.dataTransfer.types;
+            if (types && !Array.from(types).includes('Files')) {
+                return;
+            }
+
+            e.preventDefault(); body.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if(file) {
+                if(file.name.endsWith('.json')) loadProjectFromFile(file); 
+                else {
+                    const r = new FileReader();
+                    r.onload = (ev) => { document.getElementById('import-textarea').value = ev.target.result; openModal('import-modal'); };
+                    r.readAsText(file);
+                }
+            }
+        });
+        
+        // [추가] 스크롤 시 메뉴 닫기
+        window.addEventListener('scroll', () => {
+            document.getElementById('context-menu').style.display = 'none';
+            document.getElementById('floating-toolbar').style.display = 'none';
+        }, true);
+
+        console.log("🚀 Editor System Initialized (v3.9.5 Fixed & UX Improved)");
+    });
 </script>
 </body>
 </html>
